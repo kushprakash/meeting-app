@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:share_plus/share_plus.dart';
 import '../../config/app_theme.dart';
 import '../../providers/livekit_room_provider.dart';
 import '../../widgets/audio_avatar.dart';
@@ -119,6 +120,15 @@ class AudioRoomScreen extends StatelessWidget {
                       ),
                     ),
                 ],
+              ),
+            if (meeting != null)
+              IconButton(
+                icon: const Icon(Icons.share, color: AppTheme.accentColor),
+                tooltip: 'Share Meeting Code',
+                onPressed: () {
+                  final text = 'Join my Audio Meeting on MeetInt!\n\nTitle: ${meeting.title}\nMeeting Code: ${meeting.uuid}\n\nJoin link: https://vidbez.com/meeting/${meeting.uuid}';
+                  Share.share(text, subject: 'Join Meeting: ${meeting.title}');
+                },
               ),
             IconButton(
               icon: const Icon(Icons.call_end, color: Colors.red),

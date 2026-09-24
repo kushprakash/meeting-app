@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:share_plus/share_plus.dart';
 import '../../config/app_theme.dart';
 import '../../providers/meeting_provider.dart';
 import '../../widgets/custom_button.dart';
@@ -72,13 +74,7 @@ class _CreateMeetingScreenState extends State<CreateMeetingScreen> {
     if (!mounted) return;
 
     if (meeting != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Meeting created successfully!'),
-          backgroundColor: AppTheme.success,
-        ),
-      );
-      Navigator.pop(context);
+      _showCreatedDialog(meeting.title, meeting.uuid);
     } else if (meetingProvider.errorMessage != null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -87,6 +83,80 @@ class _CreateMeetingScreenState extends State<CreateMeetingScreen> {
         ),
       );
     }
+  }
+
+  void _showCreatedDialog(String title, String uuid) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.cardDark,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Row(
+          children: [
+            Icon(Icons.check_circle, color: AppTheme.success, size: 28),
+            SizedBox(width: 10),
+            Text('Meeting Created!', style: TextStyle(color: Colors.white, fontSize: 18)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'Meeting Code (UUID):',
+              style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+            ),
+            const SizedBox(height: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: AppTheme.surfaceDark,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Colors.white10),
+              ),
+              child: SelectableText(
+                uuid,
+                style: const TextStyle(fontSize: 13, color: AppTheme.accentColor, fontWeight: FontWeight.w600),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton.icon(
+            onPressed: () {
+              Clipboard.setData(ClipboardData(text: uuid));
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Meeting code copied!'), backgroundColor: AppTheme.success),
+              );
+            },
+            icon: const Icon(Icons.copy, size: 18),
+            label: const Text('Copy Code'),
+          ),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.accentColor, foregroundColor: Colors.black),
+            onPressed: () {
+              final text = 'Join my Audio Meeting on MeetInt!\n\nTitle: $title\nMeeting Code: $uuid\n\nJoin link: https://vidbez.com/meeting/$uuid';
+              Share.share(text, subject: 'Join Meeting: $title');
+            },
+            icon: const Icon(Icons.share, size: 18),
+            label: const Text('Share Code'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              Navigator.pop(context);
+            },
+            child: const Text('Done'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override

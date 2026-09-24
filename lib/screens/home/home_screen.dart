@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:share_plus/share_plus.dart';
 import '../../config/app_theme.dart';
 import '../../models/meeting.dart';
 import '../../providers/auth_provider.dart';
@@ -451,11 +452,19 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                           icon: Icons.verified_user,
                         ),
                       ),
-                    const Spacer(),
+                    IconButton(
+                      icon: const Icon(Icons.share, color: AppTheme.accentColor, size: 20),
+                      tooltip: 'Share Meeting Code',
+                      onPressed: () {
+                        final text = 'Join my Audio Meeting on MeetInt!\n\nTitle: ${m.title}\nMeeting Code: ${m.uuid}\n\nJoin link: https://vidbez.com/meeting/${m.uuid}';
+                        Share.share(text, subject: 'Join Meeting: ${m.title}');
+                      },
+                    ),
+                    const SizedBox(width: 8),
                     ElevatedButton.icon(
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppTheme.primaryColor,
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                       ),
                       onPressed: () => _onJoinMeeting(m),
                       icon: const Icon(Icons.headset_mic, size: 18),
