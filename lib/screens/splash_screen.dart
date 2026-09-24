@@ -52,7 +52,7 @@ class _SplashScreenState extends State<SplashScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Set Laravel API Base URL:\n• Android Emulator: http://10.0.2.2:8000/api/v1\n• Localhost: http://127.0.0.1:8000/api/v1\n• WiFi IP: http://192.168.x.x:8000/api/v1',
+              'Set Laravel API Base URL:\n• Live Server: https://vidbez.com/api/v1\n• Localhost: http://10.0.2.2:8000/api/v1',
               style: TextStyle(fontSize: 12, color: Colors.white70),
             ),
             const SizedBox(height: 12),
@@ -60,7 +60,7 @@ class _SplashScreenState extends State<SplashScreen> {
               controller: _urlController,
               style: const TextStyle(color: Colors.white),
               decoration: const InputDecoration(
-                hintText: 'http://10.0.2.2:8000/api/v1',
+                hintText: 'https://vidbez.com/api/v1',
               ),
             ),
           ],
