@@ -14,6 +14,10 @@ class MeetingModel {
   final bool allowScreenShare;
   final bool allowChat;
   final String? startsAt;
+  final String? endsAt;
+  final String? createdAt;
+  final int? remainingSeconds;
+  final bool isExpired;
   final int? maxParticipants;
   final UserModel? host;
   final List<ParticipantModel> participants;
@@ -31,6 +35,10 @@ class MeetingModel {
     required this.allowScreenShare,
     required this.allowChat,
     this.startsAt,
+    this.endsAt,
+    this.createdAt,
+    this.remainingSeconds,
+    this.isExpired = false,
     this.maxParticipants,
     this.host,
     this.participants = const [],
@@ -56,6 +64,12 @@ class MeetingModel {
       allowScreenShare: json['allow_screen_share'] == true || json['allow_screen_share'] == 1,
       allowChat: json['allow_chat'] == true || json['allow_chat'] == 1 || json['allow_chat'] == null,
       startsAt: json['starts_at'],
+      endsAt: json['ends_at'],
+      createdAt: json['created_at'],
+      remainingSeconds: json['remaining_seconds'] != null
+          ? (json['remaining_seconds'] is int ? json['remaining_seconds'] : int.tryParse(json['remaining_seconds'].toString()))
+          : null,
+      isExpired: json['is_expired'] == true || json['status'] == 'ended',
       maxParticipants: json['max_participants'] != null
           ? (json['max_participants'] is int ? json['max_participants'] : int.tryParse(json['max_participants'].toString()))
           : null,
@@ -66,4 +80,36 @@ class MeetingModel {
 
   bool get isPrivate => visibility == 'private';
   bool get isPublic => visibility == 'public';
+
+  bool get isMeetingExpired {
+    if (isExpired || status == 'ended') return true;
+    final now = DateTime.now();
+
+    if (endsAt != null && endsAt!.isNotEmpty) {
+      final dt = DateTime.tryParse(endsAt!);
+      if (dt != null && now.isAfter(dt)) {
+        return true;
+      }
+    }
+
+    if (startsAt != null && startsAt!.isNotEmpty) {
+      final st = DateTime.tryParse(startsAt!);
+      if (st != null) {
+        if (now.difference(st).inHours >= 12 || st.day != now.day || st.month != now.month || st.year != now.year) {
+          return true;
+        }
+      }
+    }
+
+    if (createdAt != null && createdAt!.isNotEmpty) {
+      final ct = DateTime.tryParse(createdAt!);
+      if (ct != null) {
+        if (now.difference(ct).inHours >= 12 || ct.day != now.day || ct.month != now.month || ct.year != now.year) {
+          return true;
+        }
+      }
+    }
+
+    return false;
+  }
 }

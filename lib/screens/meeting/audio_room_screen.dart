@@ -10,8 +10,15 @@ import 'chat_bottom_sheet.dart';
 import 'host_controls_dialog.dart';
 import 'participant_requests_dialog.dart';
 
-class AudioRoomScreen extends StatelessWidget {
+class AudioRoomScreen extends StatefulWidget {
   const AudioRoomScreen({super.key});
+
+  @override
+  State<AudioRoomScreen> createState() => _AudioRoomScreenState();
+}
+
+class _AudioRoomScreenState extends State<AudioRoomScreen> {
+  bool _isLeaving = false;
 
   void _copyMeetingId(BuildContext context, String uuid) {
     Clipboard.setData(ClipboardData(text: uuid));
@@ -39,6 +46,53 @@ class AudioRoomScreen extends StatelessWidget {
     );
   }
 
+  void _confirmLeave(BuildContext context, LiveKitRoomProvider room) async {
+    if (_isLeaving) return; // Prevent double-tap
+
+    final nav = Navigator.of(context);
+
+    // Show confirmation dialog
+    final shouldLeave = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.cardDark,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        title: const Text('Leave Meeting?', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        content: const Text(
+          'Are you sure you want to leave this audio room?',
+          style: TextStyle(color: AppTheme.textSecondary),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Stay', style: TextStyle(color: AppTheme.textSecondary)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Leave', style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldLeave != true) return;
+    if (!mounted) return;
+
+    setState(() => _isLeaving = true);
+
+    await room.leaveRoom();
+
+    if (mounted && nav.canPop()) {
+      nav.pop();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final room = Provider.of<LiveKitRoomProvider>(context);
@@ -47,10 +101,32 @@ class AudioRoomScreen extends StatelessWidget {
     final participants = room.meetingParticipants;
     final pendingRequests = room.pendingRequests;
 
+    // Auto exit ONLY when host explicitly removes/kicks participant or meeting ends
+    if (room.errorMessage != null && room.errorMessage!.isNotEmpty && !_isLeaving) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && Navigator.of(context).canPop()) {
+          final msg = room.errorMessage!;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Row(
+                children: [
+                  const Icon(Icons.info_outline, color: Colors.white),
+                  const SizedBox(width: 8),
+                  Expanded(child: Text(msg)),
+                ],
+              ),
+              backgroundColor: AppTheme.warning,
+            ),
+          );
+          Navigator.of(context).pop();
+        }
+      });
+    }
+
     return PopScope(
-      canPop: false,
+      canPop: _isLeaving,
       onPopInvokedWithResult: (didPop, result) async {
-        if (!didPop) {
+        if (!didPop && !_isLeaving) {
           _confirmLeave(context, room);
         }
       },
@@ -163,169 +239,211 @@ class AudioRoomScreen extends StatelessWidget {
                 ],
               ),
             ),
-            // Participants Grid
-            Expanded(
-              child: Container(
-                padding: const EdgeInsets.all(20),
-                child: GridView.builder(
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 3,
-                    mainAxisSpacing: 20,
-                    crossAxisSpacing: 16,
-                    childAspectRatio: 0.85,
-                  ),
-                  itemCount: participants.length + 1, // +1 for current user
-                  itemBuilder: (ctx, idx) {
-                    if (idx == 0) {
-                      // Current User Avatar
-                      return AudioAvatar(
-                        name: '${currentUser?.name ?? "Me"} (You)',
-                        isHost: room.isHost,
-                        isMuted: room.isMuted,
-                        isSpeaking: !room.isMuted,
-                        radius: 36,
-                      );
-                    }
-
-                    final p = participants[idx - 1];
-                    final isHostUser = p.role == 'host' || (meeting != null && p.userId == meeting.hostId);
-
-                    return AudioAvatar(
-                      name: p.user?.name ?? p.email.split('@')[0],
-                      isHost: isHostUser,
-                      isMuted: true, // Synced via events
-                      isSpeaking: false,
-                      radius: 36,
-                      onTap: () {
-                        if (room.isHost && p.user?.id != currentUser?.id) {
-                          showDialog(
-                            context: context,
-                            builder: (_) => HostControlsDialog(participant: p),
-                          );
-                        }
-                      },
-                    );
-                  },
+            // Real-time Pending Join Requests Banner for Host
+            if (room.isHost && pendingRequests.isNotEmpty)
+              Container(
+                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppTheme.warning.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: AppTheme.warning.withValues(alpha: 0.7), width: 1.5),
                 ),
-              ),
-            ),
-            // Floating Control Bar
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
-              decoration: const BoxDecoration(
-                color: AppTheme.cardDark,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black45,
-                    blurRadius: 16,
-                    offset: Offset(0, -4),
-                  ),
-                ],
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  // Mic Toggle Button
-                  GestureDetector(
-                    onTap: () => room.toggleMicrophone(),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 200),
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: room.isMuted ? Colors.red.withValues(alpha: 0.2) : AppTheme.primaryColor,
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: const BoxDecoration(
+                        color: AppTheme.warning,
                         shape: BoxShape.circle,
-                        border: Border.all(
-                          color: room.isMuted ? Colors.red : AppTheme.primaryLight,
-                          width: 2,
-                        ),
                       ),
-                      child: Icon(
-                        room.isMuted ? Icons.mic_off : Icons.mic,
-                        size: 28,
-                        color: room.isMuted ? Colors.red : Colors.white,
-                      ),
+                      child: const Icon(Icons.person_add_sharp, color: Colors.black, size: 18),
                     ),
-                  ),
-                  // Chat Button
-                  GestureDetector(
-                    onTap: () => _openChat(context),
-                    child: Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: AppTheme.surfaceDark,
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white10),
-                      ),
-                      child: Stack(
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Icon(Icons.chat_bubble_outline, size: 28, color: Colors.white),
-                          if (room.chatMessages.isNotEmpty)
-                            Positioned(
-                              top: 0,
-                              right: 0,
-                              child: Container(
-                                width: 10,
-                                height: 10,
-                                decoration: const BoxDecoration(
-                                  color: AppTheme.accentColor,
-                                  shape: BoxShape.circle,
-                                ),
-                              ),
+                          Text(
+                            '${pendingRequests.length} Join Request${pendingRequests.length > 1 ? "s" : ""} Pending',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
                             ),
+                          ),
+                          Text(
+                            'Latest: ${pendingRequests.last.user?.name ?? pendingRequests.last.email}',
+                            style: const TextStyle(
+                              color: AppTheme.textSecondary,
+                              fontSize: 11,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ],
                       ),
                     ),
-                  ),
-                  // Leave Button
-                  GestureDetector(
-                    onTap: () => _confirmLeave(context, room),
-                    child: Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: const BoxDecoration(
-                        color: Colors.red,
-                        shape: BoxShape.circle,
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.accentColor,
+                        foregroundColor: Colors.black,
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       ),
-                      child: const Icon(Icons.call_end, size: 28, color: Colors.white),
+                      onPressed: () => _openPendingRequests(context),
+                      child: const Text(
+                        'Review',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
+              ),
+            // Participants Grid (excluding current user to prevent duplicate avatars)
+            Expanded(
+              child: Builder(
+                builder: (context) {
+                  final otherParticipants = participants.where((p) =>
+                    p.userId != currentUser?.id &&
+                    (currentUser == null || p.email.toLowerCase() != currentUser.email.toLowerCase())
+                  ).toList();
+
+                  return Container(
+                    padding: const EdgeInsets.all(20),
+                    child: GridView.builder(
+                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 3,
+                        mainAxisSpacing: 20,
+                        crossAxisSpacing: 16,
+                        childAspectRatio: 0.85,
+                      ),
+                      itemCount: otherParticipants.length + 1, // +1 for current user
+                      itemBuilder: (ctx, idx) {
+                        if (idx == 0) {
+                          // Current User Avatar
+                          return AudioAvatar(
+                            name: '${currentUser?.name ?? "Me"} (You)',
+                            isHost: room.isHost,
+                            isMuted: room.isMuted,
+                            isSpeaking: !room.isMuted,
+                            radius: 36,
+                          );
+                        }
+
+                        final p = otherParticipants[idx - 1];
+                        final isHostUser = p.role == 'host' || (meeting != null && p.userId == meeting.hostId);
+
+                        return AudioAvatar(
+                          name: p.user?.name ?? p.email.split('@')[0],
+                          isHost: isHostUser,
+                          isMuted: true, // Synced via events
+                          isSpeaking: false,
+                          radius: 36,
+                          onTap: () {
+                            if (room.isHost && p.user?.id != currentUser?.id) {
+                              showDialog(
+                                context: context,
+                                builder: (_) => HostControlsDialog(participant: p),
+                              );
+                            }
+                          },
+                        );
+                      },
+                    ),
+                  );
+                },
+              ),
+            ),
+            // Floating Control Bar with SafeArea protection for mobile navigation bar
+            SafeArea(
+              top: false,
+              bottom: true,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                decoration: const BoxDecoration(
+                  color: AppTheme.cardDark,
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black45,
+                      blurRadius: 16,
+                      offset: Offset(0, -4),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    // Mic Toggle Button
+                    GestureDetector(
+                      onTap: () => room.toggleMicrophone(),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: room.isMuted ? Colors.red.withValues(alpha: 0.2) : AppTheme.primaryColor,
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: room.isMuted ? Colors.red : AppTheme.primaryLight,
+                            width: 2,
+                          ),
+                        ),
+                        child: Icon(
+                          room.isMuted ? Icons.mic_off : Icons.mic,
+                          size: 28,
+                          color: room.isMuted ? Colors.red : Colors.white,
+                        ),
+                      ),
+                    ),
+                    // Chat Button
+                    GestureDetector(
+                      onTap: () => _openChat(context),
+                      child: Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: AppTheme.surfaceDark,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white10),
+                        ),
+                        child: Stack(
+                          children: [
+                            const Icon(Icons.chat_bubble_outline, size: 28, color: Colors.white),
+                            if (room.chatMessages.isNotEmpty)
+                              Positioned(
+                                top: 0,
+                                right: 0,
+                                child: Container(
+                                  width: 10,
+                                  height: 10,
+                                  decoration: const BoxDecoration(
+                                    color: AppTheme.accentColor,
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    // Leave Button
+                    GestureDetector(
+                      onTap: () => _confirmLeave(context, room),
+                      child: Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: const BoxDecoration(
+                          color: Colors.red,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.call_end, size: 28, color: Colors.white),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  void _confirmLeave(BuildContext context, LiveKitRoomProvider room) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppTheme.cardDark,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-        title: const Text('Leave Audio Room?', style: TextStyle(color: Colors.white)),
-        content: const Text(
-          'Are you sure you want to disconnect from this audio room?',
-          style: TextStyle(color: AppTheme.textSecondary),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Stay'),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            onPressed: () async {
-              Navigator.pop(ctx);
-              await room.leaveRoom();
-              if (context.mounted) {
-                Navigator.pop(context);
-              }
-            },
-            child: const Text('Leave'),
-          ),
-        ],
       ),
     );
   }

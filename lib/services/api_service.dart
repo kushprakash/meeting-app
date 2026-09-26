@@ -5,6 +5,7 @@ import '../config/api_config.dart';
 
 class ApiService {
   static const String keyToken = 'auth_token';
+  static const String keyPendingMeeting = 'pending_meeting_uuid';
 
   static Future<String?> getToken() async {
     final prefs = await SharedPreferences.getInstance();
@@ -19,6 +20,21 @@ class ApiService {
   static Future<void> removeToken() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(keyToken);
+  }
+
+  static Future<String?> getPendingMeetingUuid() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(keyPendingMeeting);
+  }
+
+  static Future<void> setPendingMeetingUuid(String uuid) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(keyPendingMeeting, uuid);
+  }
+
+  static Future<void> removePendingMeetingUuid() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(keyPendingMeeting);
   }
 
   static Future<Map<String, String>> _getHeaders({bool requireAuth = true}) async {
@@ -41,7 +57,7 @@ class ApiService {
     final headers = await _getHeaders(requireAuth: requireAuth);
 
     try {
-      final response = await http.get(url, headers: headers);
+      final response = await http.get(url, headers: headers).timeout(const Duration(seconds: 8));
       return _processResponse(response);
     } catch (e) {
       return {'status': 'error', 'message': 'Network connection error: $e'};
@@ -54,7 +70,7 @@ class ApiService {
     final headers = await _getHeaders(requireAuth: requireAuth);
 
     try {
-      final response = await http.post(url, headers: headers, body: jsonEncode(body));
+      final response = await http.post(url, headers: headers, body: jsonEncode(body)).timeout(const Duration(seconds: 8));
       return _processResponse(response);
     } catch (e) {
       return {'status': 'error', 'message': 'Network connection error: $e'};
@@ -67,7 +83,7 @@ class ApiService {
     final headers = await _getHeaders(requireAuth: requireAuth);
 
     try {
-      final response = await http.delete(url, headers: headers);
+      final response = await http.delete(url, headers: headers).timeout(const Duration(seconds: 8));
       return _processResponse(response);
     } catch (e) {
       return {'status': 'error', 'message': 'Network connection error: $e'};

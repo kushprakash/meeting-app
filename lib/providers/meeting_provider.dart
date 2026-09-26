@@ -41,6 +41,7 @@ class MeetingProvider extends ChangeNotifier {
     required bool approvalRequired,
     required bool allowAudio,
     required bool allowChat,
+    int durationMinutes = 60,
     List<String>? invitedEmails,
   }) async {
     _isLoading = true;
@@ -53,6 +54,7 @@ class MeetingProvider extends ChangeNotifier {
       approvalRequired: approvalRequired,
       allowAudio: allowAudio,
       allowChat: allowChat,
+      durationMinutes: durationMinutes,
       invitedEmails: invitedEmails,
     );
 

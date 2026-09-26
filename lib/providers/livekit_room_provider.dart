@@ -36,8 +36,14 @@ class LiveKitRoomProvider extends ChangeNotifier {
   Room? get room => _room;
   MeetingModel? get meeting => _meeting;
   UserModel? get currentUser => _currentUser;
-  String? get role => _role;
-  bool get isHost => _role == 'host' || (_meeting != null && _currentUser != null && _meeting!.hostId == _currentUser!.id);
+  bool get isHost {
+    if (_role?.toLowerCase() == 'host') return true;
+    if (_meeting != null && _currentUser != null) {
+      if (_meeting!.hostId != 0 && _meeting!.hostId == _currentUser!.id) return true;
+      if (_meeting!.host != null && _meeting!.host!.email.toLowerCase() == _currentUser!.email.toLowerCase()) return true;
+    }
+    return false;
+  }
   bool get isConnecting => _isConnecting;
   bool get isConnected => _isConnected;
   bool get isMuted => _isMuted;
@@ -49,6 +55,8 @@ class LiveKitRoomProvider extends ChangeNotifier {
   List<ChatMessage> get chatMessages => List.unmodifiable(_chatMessages);
 
   Timer? _pollingTimer;
+  Timer? _roomActivityTimer;
+  Set<int> _knownParticipantIds = {};
 
   Future<void> connectToRoom({
     required MeetingModel meeting,
@@ -80,30 +88,38 @@ class LiveKitRoomProvider extends ChangeNotifier {
 
       _setUpRoomListeners();
 
-      await _room!.connect(livekitHost, token);
+      await _room!.connect(livekitHost, token).timeout(const Duration(seconds: 15));
       _isConnected = true;
       _isConnecting = false;
 
-      // Enable audio publish by default if permitted
+      // Enable speakerphone and microphone by default so audio travels immediately
+      try {
+        await AudioManager.instance.setSpeakerOutputPreferred(true);
+      } catch (_) {}
+
       if (_room!.localParticipant != null) {
-        await _room!.localParticipant!.setMicrophoneEnabled(false);
-        _isMuted = true;
+        await _room!.localParticipant!.setMicrophoneEnabled(true);
+        _isMuted = false;
       }
 
       notifyListeners();
     } catch (e) {
-      // If LiveKit local server isn't reachable, enter local Audio Room mode (Development sandbox)
+      // If LiveKit local server isn't reachable or times out, enter local Audio Room mode (Development sandbox)
       debugPrint('LiveKit native connection notice: $e. Operating in Audio Room Session mode.');
       _isConnected = true;
       _isConnecting = false;
-      _isMuted = false;
+      _isMuted = false; // Audio active in local session mode
       notifyListeners();
     }
 
     // Start background sync for meeting state & pending requests if Host
-    await fetchMeetingDetails();
+    try {
+      await fetchMeetingDetails().timeout(const Duration(seconds: 15));
+    } catch (_) {}
     if (isHost) {
-      await fetchPendingRequests();
+      try {
+        await fetchPendingRequests().timeout(const Duration(seconds: 15));
+      } catch (_) {}
     }
     _startPollingTimer();
   }
@@ -113,8 +129,10 @@ class LiveKitRoomProvider extends ChangeNotifier {
 
     _listener!
       ..on<RoomDisconnectedEvent>((event) {
-        _isConnected = false;
-        notifyListeners();
+        if (_errorMessage != null) {
+          _isConnected = false;
+          notifyListeners();
+        }
       })
       ..on<ParticipantConnectedEvent>((event) {
         _remoteLiveKitParticipants[event.participant.sid] = event.participant;
@@ -122,6 +140,14 @@ class LiveKitRoomProvider extends ChangeNotifier {
       })
       ..on<ParticipantDisconnectedEvent>((event) {
         _remoteLiveKitParticipants.remove(event.participant.sid);
+        notifyListeners();
+      })
+      ..on<TrackSubscribedEvent>((event) {
+        if (event.track is AudioTrack) {
+          try {
+            (event.track as AudioTrack).start();
+          } catch (_) {}
+        }
         notifyListeners();
       })
       ..on<DataReceivedEvent>((event) {
@@ -232,7 +258,7 @@ class LiveKitRoomProvider extends ChangeNotifier {
     final res = await _meetingService.getMeetingDetails(_meeting!.uuid);
     if (res['status'] == 'success' && res['data']?['meeting'] != null) {
       _meeting = MeetingModel.fromJson(res['data']['meeting']);
-      _meetingParticipants = _meeting!.participants;
+      _meetingParticipants = _meeting!.participants.where((p) => p.status == 'joined' || p.status == 'approved').toList();
       notifyListeners();
     }
   }
@@ -241,10 +267,12 @@ class LiveKitRoomProvider extends ChangeNotifier {
   Future<void> fetchPendingRequests() async {
     if (_meeting == null || !isHost) return;
     final res = await _meetingService.getPendingRequests(_meeting!.uuid);
-    if (res['status'] == 'success' && res['data']?['pending'] != null) {
-      final list = res['data']['pending'] as List;
-      _pendingRequests = list.map((p) => ParticipantModel.fromJson(p)).toList();
-      notifyListeners();
+    if (res['status'] == 'success') {
+      final rawList = res['data']?['pending_requests'] ?? res['data']?['pending'];
+      if (rawList is List) {
+        _pendingRequests = rawList.map((p) => ParticipantModel.fromJson(p)).toList();
+        notifyListeners();
+      }
     }
   }
 
@@ -300,9 +328,9 @@ class LiveKitRoomProvider extends ChangeNotifier {
 
   void _startPollingTimer() {
     _pollingTimer?.cancel();
-    _pollingTimer = Timer.periodic(const Duration(seconds: 4), (timer) {
+    _pollingTimer = Timer.periodic(const Duration(seconds: 2), (timer) {
       if (_isConnected && _meeting != null) {
-        fetchMeetingDetails();
+        _pollRoomActivity();
         if (isHost) {
           fetchPendingRequests();
         }
@@ -310,28 +338,121 @@ class LiveKitRoomProvider extends ChangeNotifier {
     });
   }
 
+  // Real-time room-activity poll: adds/removes participant circles live
+  Future<void> _pollRoomActivity() async {
+    if (_meeting == null) return;
+    try {
+      final res = await MeetingService().getRoomActivity(_meeting!.uuid);
+      if (res['status'] != 'success') return;
+
+      final data = res['data'];
+
+      // Current user kicked/removed/blocked or meeting expired -> Auto Exit
+      final isExpired = data?['is_expired'] == true;
+      final isKickedOrRemoved = data?['is_kicked_or_removed'] == true;
+      final myStatus = data?['my_status'] as String?;
+
+      if (isKickedOrRemoved || myStatus == 'removed' || myStatus == 'blocked' || myStatus == 'rejected') {
+        _errorMessage = 'You have been removed from the meeting by the host.';
+        await leaveRoom();
+        return;
+      }
+
+      if (isExpired) {
+        _errorMessage = 'The meeting has ended.';
+        await leaveRoom();
+        return;
+      }
+
+      final rawList = data?['active_participants'] as List? ?? [];
+      final activeParticipants = rawList
+          .map((p) => ParticipantModel.fromJson(p))
+          .toList();
+
+      final currentIds = activeParticipants.map((p) => p.id).toSet();
+
+      // Only update if participant list has actually changed
+      if (currentIds.length != _knownParticipantIds.length ||
+          !currentIds.containsAll(_knownParticipantIds)) {
+        _knownParticipantIds = currentIds;
+
+        // Exclude self from the list
+        _meetingParticipants = activeParticipants.where((p) {
+          if (_currentUser == null) return true;
+          if (p.userId != null && p.userId == _currentUser!.id) return false;
+          if (p.email.toLowerCase() == _currentUser!.email.toLowerCase()) return false;
+          return true;
+        }).toList();
+
+        notifyListeners();
+      }
+
+      // Pending requests for host: Update if pending IDs change
+      if (isHost) {
+        final pendingRaw = data?['pending_requests'] as List? ?? [];
+        final newPending = pendingRaw.map((p) => ParticipantModel.fromJson(p)).toList();
+
+        final newPendingIds = newPending.map((p) => p.id).toSet();
+        final currentPendingIds = _pendingRequests.map((p) => p.id).toSet();
+
+        if (newPendingIds.length != currentPendingIds.length ||
+            !newPendingIds.containsAll(currentPendingIds)) {
+          _pendingRequests = newPending;
+          notifyListeners();
+        }
+      }
+    } catch (_) {}
+  }
+
   Future<void> leaveRoom() async {
+    // Stop all timers immediately
     _pollingTimer?.cancel();
     _pollingTimer = null;
+    _roomActivityTimer?.cancel();
+    _roomActivityTimer = null;
 
+    // Send leave API call
+    final meetingUuid = _meeting?.uuid;
+    if (meetingUuid != null) {
+      try {
+        await _meetingService.leaveMeeting(meetingUuid);
+      } catch (_) {}
+    }
+
+    // Disable mic before disconnecting
+    try {
+      if (_room?.localParticipant != null) {
+        await _room!.localParticipant!.setMicrophoneEnabled(false);
+      }
+    } catch (_) {}
+
+    // Disconnect LiveKit
     try {
       await _room?.disconnect();
+    } catch (_) {}
+    try {
       await _listener?.dispose();
     } catch (_) {}
 
+    // Reset all state
     _room = null;
     _listener = null;
+    _meeting = null;
     _isConnected = false;
     _isConnecting = false;
+    _isMuted = true;
     _chatMessages.clear();
     _pendingRequests.clear();
     _meetingParticipants.clear();
+    _remoteLiveKitParticipants.clear();
+    _knownParticipantIds.clear();
     notifyListeners();
   }
 
   @override
   void dispose() {
     _pollingTimer?.cancel();
+    _roomActivityTimer?.cancel();
     _room?.disconnect();
     _listener?.dispose();
     super.dispose();

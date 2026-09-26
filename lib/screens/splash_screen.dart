@@ -23,9 +23,17 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Future<void> _checkAuth() async {
-    await Future.delayed(const Duration(seconds: 1));
-    if (!mounted) return;
     final auth = Provider.of<AuthProvider>(context, listen: false);
+
+    // Wait until AuthProvider completes token verification
+    int attempts = 0;
+    while (auth.isLoading && attempts < 25 && mounted) {
+      await Future.delayed(const Duration(milliseconds: 150));
+      attempts++;
+    }
+
+    if (!mounted) return;
+
     if (auth.isAuthenticated) {
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (_) => const HomeScreen()),

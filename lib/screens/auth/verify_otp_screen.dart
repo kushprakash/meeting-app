@@ -161,6 +161,7 @@ class _VerifyOtpScreenState extends State<VerifyOtpScreen> {
                         ),
                 ),
               ),
+              const SizedBox(height: 40),
             ],
           ),
         ),

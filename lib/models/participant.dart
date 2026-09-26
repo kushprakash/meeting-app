@@ -9,6 +9,7 @@ class ParticipantModel {
   final String status; // 'invited', 'pending', 'approved', 'rejected', 'joined', 'left', 'removed', 'blocked'
   final UserModel? user;
   final String? approvedAt;
+  final String? leftAt;
 
   ParticipantModel({
     required this.id,
@@ -19,6 +20,7 @@ class ParticipantModel {
     required this.status,
     this.user,
     this.approvedAt,
+    this.leftAt,
   });
 
   factory ParticipantModel.fromJson(Map<String, dynamic> json) {
@@ -31,6 +33,7 @@ class ParticipantModel {
       status: json['status'] ?? 'pending',
       user: json['user'] != null ? UserModel.fromJson(json['user']) : null,
       approvedAt: json['approved_at'],
+      leftAt: json['left_at'],
     );
   }
 

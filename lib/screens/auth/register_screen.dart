@@ -137,6 +137,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   isLoading: auth.isLoading,
                   onPressed: _handleRegister,
                 ),
+                const SizedBox(height: 40),
               ],
             ),
           ),

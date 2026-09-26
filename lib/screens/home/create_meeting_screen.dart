@@ -3,9 +3,13 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../config/app_theme.dart';
+import '../../models/meeting.dart';
+import '../../providers/auth_provider.dart';
+import '../../providers/livekit_room_provider.dart';
 import '../../providers/meeting_provider.dart';
 import '../../widgets/custom_button.dart';
 import '../../widgets/custom_text_field.dart';
+import '../meeting/audio_room_screen.dart';
 
 class CreateMeetingScreen extends StatefulWidget {
   const CreateMeetingScreen({super.key});
@@ -23,6 +27,7 @@ class _CreateMeetingScreenState extends State<CreateMeetingScreen> {
   bool _approvalRequired = true;
   bool _allowAudio = true;
   bool _allowChat = true;
+  int _durationMinutes = 60;
 
   final List<String> _invitedEmails = [];
 
@@ -68,6 +73,7 @@ class _CreateMeetingScreenState extends State<CreateMeetingScreen> {
       approvalRequired: _approvalRequired,
       allowAudio: _allowAudio,
       allowChat: _allowChat,
+      durationMinutes: _durationMinutes,
       invitedEmails: _invitedEmails,
     );
 
@@ -82,6 +88,67 @@ class _CreateMeetingScreenState extends State<CreateMeetingScreen> {
           backgroundColor: AppTheme.error,
         ),
       );
+    }
+  }
+
+  void _enterMeetingRoom(String uuid, BuildContext dialogContext) async {
+    Navigator.pop(dialogContext); // Close dialog
+    final meetingProvider = Provider.of<MeetingProvider>(context, listen: false);
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final livekitRoom = Provider.of<LiveKitRoomProvider>(context, listen: false);
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(
+        child: CircularProgressIndicator(color: AppTheme.accentColor),
+      ),
+    );
+
+    try {
+      final res = await meetingProvider.joinMeeting(uuid);
+      if (res['status'] == 'success' && res['data']?['access'] == 'granted') {
+        final data = res['data'];
+        final token = data['token'];
+        final livekitHost = data['livekit_host'] ?? 'wss://vidbez.com/livekit/';
+        final role = data['role'] ?? 'host';
+
+        MeetingModel meeting = MeetingModel(
+          id: 0,
+          uuid: uuid,
+          title: _titleController.text.trim().isEmpty ? 'Audio Room' : _titleController.text.trim(),
+          hostId: authProvider.user?.id ?? 0,
+          visibility: _visibility,
+          approvalRequired: _approvalRequired,
+          status: 'active',
+          allowAudio: _allowAudio,
+          allowVideo: false,
+          allowScreenShare: false,
+          allowChat: _allowChat,
+        );
+
+        await livekitRoom.connectToRoom(
+          meeting: meeting,
+          currentUser: authProvider.user!,
+          token: token,
+          livekitHost: livekitHost,
+          role: role,
+        );
+
+        if (!mounted) return;
+        Navigator.pop(context); // Close loader
+        Navigator.pop(context); // Exit create screen
+
+        Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const AudioRoomScreen()),
+        );
+      } else {
+        if (!mounted) return;
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.pop(context);
     }
   }
 
@@ -138,8 +205,7 @@ class _CreateMeetingScreenState extends State<CreateMeetingScreen> {
             icon: const Icon(Icons.copy, size: 18),
             label: const Text('Copy Code'),
           ),
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.accentColor, foregroundColor: Colors.black),
+          TextButton.icon(
             onPressed: () {
               final text = 'Join my Audio Meeting on MeetInt!\n\nTitle: $title\nMeeting Code: $uuid\n\nJoin link: https://vidbez.com/meeting/$uuid';
               Share.share(text, subject: 'Join Meeting: $title');
@@ -147,12 +213,11 @@ class _CreateMeetingScreenState extends State<CreateMeetingScreen> {
             icon: const Icon(Icons.share, size: 18),
             label: const Text('Share Code'),
           ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              Navigator.pop(context);
-            },
-            child: const Text('Done'),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.accentColor, foregroundColor: Colors.black),
+            onPressed: () => _enterMeetingRoom(uuid, ctx),
+            icon: const Icon(Icons.meeting_room, size: 18),
+            label: const Text('Enter Meeting Room'),
           ),
         ],
       ),
@@ -167,8 +232,9 @@ class _CreateMeetingScreenState extends State<CreateMeetingScreen> {
       appBar: AppBar(
         title: const Text('Host Audio Meeting'),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
         child: Form(
           key: _formKey,
           child: Column(
@@ -192,6 +258,31 @@ class _CreateMeetingScreenState extends State<CreateMeetingScreen> {
                 validator: (v) {
                   if (v == null || v.trim().isEmpty) return 'Title is required';
                   return null;
+                },
+              ),
+              const SizedBox(height: 20),
+              DropdownButtonFormField<int>(
+                initialValue: _durationMinutes,
+                dropdownColor: AppTheme.cardDark,
+                style: const TextStyle(color: Colors.white, fontSize: 14),
+                decoration: const InputDecoration(
+                  labelText: 'Standard Meeting Duration (End Time)',
+                  prefixIcon: Icon(Icons.timer_outlined, color: AppTheme.accentColor),
+                ),
+                items: const [
+                  DropdownMenuItem(value: 15, child: Text('15 Minutes')),
+                  DropdownMenuItem(value: 30, child: Text('30 Minutes')),
+                  DropdownMenuItem(value: 60, child: Text('60 Minutes (Standard Default)')),
+                  DropdownMenuItem(value: 90, child: Text('90 Minutes')),
+                  DropdownMenuItem(value: 120, child: Text('120 Minutes (2 Hours)')),
+                  DropdownMenuItem(value: 240, child: Text('240 Minutes (4 Hours)')),
+                ],
+                onChanged: (val) {
+                  if (val != null) {
+                    setState(() {
+                      _durationMinutes = val;
+                    });
+                  }
                 },
               ),
               const SizedBox(height: 24),
@@ -341,9 +432,11 @@ class _CreateMeetingScreenState extends State<CreateMeetingScreen> {
                 isLoading: meetingProvider.isLoading,
                 onPressed: _handleCreate,
               ),
+              const SizedBox(height: 48),
             ],
           ),
         ),
+      ),
       ),
     );
   }

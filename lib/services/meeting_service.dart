@@ -7,6 +7,7 @@ class MeetingService {
     required bool approvalRequired,
     required bool allowAudio,
     required bool allowChat,
+    int durationMinutes = 60,
     List<String>? invitedEmails,
   }) async {
     return await ApiService.post('/meetings', {
@@ -17,6 +18,7 @@ class MeetingService {
       'allow_video': false,
       'allow_screen_share': false,
       'allow_chat': allowChat,
+      'duration_minutes': durationMinutes,
       'invited_emails': invitedEmails ?? [],
     });
   }
@@ -57,5 +59,13 @@ class MeetingService {
     return await ApiService.post('/meetings/$uuid/invite', {
       'emails': emails,
     });
+  }
+
+  Future<Map<String, dynamic>> getRoomActivity(String uuid) async {
+    return await ApiService.get('/meetings/$uuid/room-activity');
+  }
+
+  Future<Map<String, dynamic>> leaveMeeting(String uuid) async {
+    return await ApiService.post('/meetings/$uuid/leave', {});
   }
 }
