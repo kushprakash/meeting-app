@@ -40,6 +40,7 @@ class AuthProvider extends ChangeNotifier {
 
   Future<bool> register({
     required String name,
+    String? phone,
     required String email,
     required String password,
   }) async {
@@ -47,7 +48,7 @@ class AuthProvider extends ChangeNotifier {
     _errorMessage = null;
     notifyListeners();
 
-    final res = await _authService.register(name: name, email: email, password: password);
+    final res = await _authService.register(name: name, phone: phone, email: email, password: password);
     _isLoading = false;
 
     if (res['status'] == 'pending_otp') {

@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../config/app_theme.dart';
+import '../../models/participant.dart';
 import '../../providers/livekit_room_provider.dart';
 import '../../widgets/audio_avatar.dart';
 import '../../widgets/status_badge.dart';
@@ -309,6 +310,31 @@ class _AudioRoomScreenState extends State<AudioRoomScreen> {
                     (currentUser == null || p.email.toLowerCase() != currentUser.email.toLowerCase())
                   ).toList();
 
+                  // Ensure Host avatar is ALWAYS first (Index 0) among remote participants
+                  final hostEmail = meeting?.host?.email.toLowerCase() ?? '';
+                  final hostId = meeting?.hostId ?? 0;
+
+                  int hostIdx = otherParticipants.indexWhere((p) =>
+                    p.role == 'host' ||
+                    (hostId != 0 && p.userId == hostId) ||
+                    (hostEmail.isNotEmpty && p.email.toLowerCase() == hostEmail)
+                  );
+
+                  if (hostIdx > 0) {
+                    final hostP = otherParticipants.removeAt(hostIdx);
+                    otherParticipants.insert(0, hostP);
+                  } else if (hostIdx == -1 && !room.isHost && meeting?.host != null) {
+                    otherParticipants.insert(0, ParticipantModel(
+                      id: meeting!.hostId,
+                      meetingId: meeting!.id,
+                      userId: meeting!.hostId,
+                      email: meeting!.host!.email,
+                      role: 'host',
+                      status: 'joined',
+                      user: meeting!.host,
+                    ));
+                  }
+
                   return Container(
                     padding: const EdgeInsets.all(20),
                     child: GridView.builder(
@@ -333,12 +359,13 @@ class _AudioRoomScreenState extends State<AudioRoomScreen> {
 
                         final p = otherParticipants[idx - 1];
                         final isHostUser = p.role == 'host' || (meeting != null && p.userId == meeting.hostId);
+                        final isMuted = room.isParticipantMuted(p.email, userEmail: p.user?.email);
 
                         return AudioAvatar(
-                          name: p.user?.name ?? p.email.split('@')[0],
+                          name: p.user?.name ?? (p.email.contains('@') ? p.email.split('@')[0] : p.email),
                           isHost: isHostUser,
-                          isMuted: true, // Synced via events
-                          isSpeaking: false,
+                          isMuted: isMuted,
+                          isSpeaking: !isMuted,
                           radius: 36,
                           onTap: () {
                             if (room.isHost && p.user?.id != currentUser?.id) {

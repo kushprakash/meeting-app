@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../config/api_config.dart';
 import '../config/app_theme.dart';
+import '../providers/app_config_provider.dart';
 import '../providers/auth_provider.dart';
 import 'auth/login_screen.dart';
 import 'home/home_screen.dart';
@@ -93,6 +94,8 @@ class _SplashScreenState extends State<SplashScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final appConfig = Provider.of<AppConfigProvider>(context);
+
     return Scaffold(
       body: Container(
         decoration: const BoxDecoration(
@@ -123,9 +126,9 @@ class _SplashScreenState extends State<SplashScreen> {
                     ),
                   ),
                   const SizedBox(height: 24),
-                  const Text(
-                    'MeetInt Audio',
-                    style: TextStyle(
+                  Text(
+                    '${appConfig.appName} Audio',
+                    style: const TextStyle(
                       fontSize: 32,
                       fontWeight: FontWeight.bold,
                       color: Colors.white,
@@ -133,9 +136,9 @@ class _SplashScreenState extends State<SplashScreen> {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  const Text(
-                    'Secure Audio Rooms & Meeting Hosting',
-                    style: TextStyle(fontSize: 14, color: AppTheme.textSecondary),
+                  Text(
+                    appConfig.tagline,
+                    style: const TextStyle(fontSize: 14, color: AppTheme.textSecondary),
                   ),
                   const SizedBox(height: 48),
                   const CircularProgressIndicator(

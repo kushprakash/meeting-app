@@ -4,11 +4,13 @@ import '../models/user.dart';
 class AuthService {
   Future<Map<String, dynamic>> register({
     required String name,
+    String? phone,
     required String email,
     required String password,
   }) async {
     return await ApiService.post('/register', {
       'name': name,
+      'phone': phone ?? '',
       'email': email,
       'password': password,
     }, requireAuth: false);

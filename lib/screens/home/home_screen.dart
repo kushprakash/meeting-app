@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../config/app_theme.dart';
 import '../../models/meeting.dart';
+import '../../providers/app_config_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/livekit_room_provider.dart';
 import '../../providers/meeting_provider.dart';
@@ -134,7 +135,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
       if (res['status'] == 'success' && res['data']?['access'] == 'granted') {
         final data = res['data'];
         final token = data['token'];
-        final livekitHost = data['livekit_host'] ?? 'http://127.0.0.1:7880';
+        final livekitHost = data['livekit_host'] ?? 'wss://vidbez.com/livekit/';
         final role = data['role'] ?? 'participant';
 
         MeetingModel meeting = MeetingModel(
@@ -370,6 +371,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   Widget build(BuildContext context) {
     final auth = Provider.of<AuthProvider>(context);
     final meetingProvider = Provider.of<MeetingProvider>(context);
+    final appConfig = Provider.of<AppConfigProvider>(context);
 
     final activeHosted = meetingProvider.hostedMeetings.where((m) => !m.isMeetingExpired).toList();
     final activeInvited = meetingProvider.participatingMeetings.where((m) => !m.isMeetingExpired).toList();
@@ -385,12 +387,12 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
 
     return Scaffold(
       appBar: AppBar(
-        title: const Row(
+        title: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.record_voice_over, color: AppTheme.accentColor),
-            SizedBox(width: 8),
-            Text('MeetInt Dashboard'),
+            const Icon(Icons.record_voice_over, color: AppTheme.accentColor),
+            const SizedBox(width: 8),
+            Text('${appConfig.appName} Dashboard'),
           ],
         ),
         actions: [
@@ -494,6 +496,33 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                         backgroundColor: AppTheme.accentColor,
                         textColor: Colors.black,
                         onPressed: () {
+                          if (auth.user == null || !auth.user!.isCorporate) {
+                            showDialog(
+                              context: context,
+                              builder: (ctx) => AlertDialog(
+                                backgroundColor: AppTheme.cardDark,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                                title: const Row(
+                                  children: [
+                                    Icon(Icons.workspace_premium, color: AppTheme.warning, size: 28),
+                                    SizedBox(width: 10),
+                                    Text('Corporate Account Required', style: TextStyle(color: Colors.white, fontSize: 16)),
+                                  ],
+                                ),
+                                content: const Text(
+                                  'Only Corporate Account users are allowed to host audio meetings.\nPlease upgrade your account to Corporate to host rooms.',
+                                  style: TextStyle(color: AppTheme.textSecondary),
+                                ),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(ctx),
+                                    child: const Text('OK', style: TextStyle(color: AppTheme.accentColor)),
+                                  ),
+                                ],
+                              ),
+                            );
+                            return;
+                          }
                           Navigator.of(context).push(
                             MaterialPageRoute(builder: (_) => const CreateMeetingScreen()),
                           );
@@ -536,6 +565,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   }
 
   Widget _buildMeetingList(List<MeetingModel> meetings, {required bool isHosted, bool isHistory = false}) {
+    final appConfig = Provider.of<AppConfigProvider>(context, listen: false);
     if (meetings.isEmpty) {
       return Center(
         child: Column(
@@ -641,7 +671,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                     if (!isHistory)
                       TextButton.icon(
                         onPressed: () {
-                          final text = 'Join my Audio Meeting on MeetInt!\n\nTitle: ${m.title}\nMeeting Code: ${m.uuid}\n\nJoin link: https://vidbez.com/meeting/${m.uuid}';
+                          final text = 'Join my Audio Meeting on ${appConfig.appName}!\n\nTitle: ${m.title}\nMeeting Code: ${m.uuid}\n\nJoin link: https://vidbez.com/meeting/${m.uuid}';
                           Share.share(text, subject: 'Join Meeting: ${m.title}');
                         },
                         icon: const Icon(Icons.share, color: AppTheme.accentColor, size: 18),

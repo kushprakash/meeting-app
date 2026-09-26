@@ -29,8 +29,9 @@ class LiveKitRoomProvider extends ChangeNotifier {
   List<ParticipantModel> _pendingRequests = [];
   final List<ChatMessage> _chatMessages = [];
 
-  // Active LiveKit remote participants
+  // Active LiveKit remote participants & mic mute map
   final Map<String, Participant> _remoteLiveKitParticipants = {};
+  final Map<String, bool> _mutedStatusByEmail = {};
 
   // Getters
   Room? get room => _room;
@@ -54,6 +55,19 @@ class LiveKitRoomProvider extends ChangeNotifier {
   List<ParticipantModel> get pendingRequests => _pendingRequests;
   List<ChatMessage> get chatMessages => List.unmodifiable(_chatMessages);
 
+  bool isParticipantMuted(String email, {String? userEmail}) {
+    final cleanEmail = email.trim().toLowerCase();
+    final cleanUserEmail = userEmail?.trim().toLowerCase() ?? '';
+
+    if (cleanEmail.isNotEmpty && _mutedStatusByEmail.containsKey(cleanEmail)) {
+      return _mutedStatusByEmail[cleanEmail]!;
+    }
+    if (cleanUserEmail.isNotEmpty && _mutedStatusByEmail.containsKey(cleanUserEmail)) {
+      return _mutedStatusByEmail[cleanUserEmail]!;
+    }
+    return !(_meeting?.allowAudio ?? true);
+  }
+
   Timer? _pollingTimer;
   Timer? _roomActivityTimer;
   Set<int> _knownParticipantIds = {};
@@ -70,6 +84,7 @@ class LiveKitRoomProvider extends ChangeNotifier {
     _role = role;
     _isConnecting = true;
     _errorMessage = null;
+    _mutedStatusByEmail.clear();
     notifyListeners();
 
     // Request microphone permission on mobile devices
@@ -81,6 +96,7 @@ class LiveKitRoomProvider extends ChangeNotifier {
       const roomOptions = RoomOptions(
         defaultAudioPublishOptions: AudioPublishOptions(
           name: 'microphone',
+          dtx: false,
         ),
       );
       _room = Room(roomOptions: roomOptions);
@@ -88,7 +104,7 @@ class LiveKitRoomProvider extends ChangeNotifier {
 
       _setUpRoomListeners();
 
-      await _room!.connect(livekitHost, token).timeout(const Duration(seconds: 15));
+      await _room!.connect(livekitHost, token).timeout(const Duration(seconds: 10));
       _isConnected = true;
       _isConnecting = false;
 
@@ -100,25 +116,26 @@ class LiveKitRoomProvider extends ChangeNotifier {
       if (_room!.localParticipant != null) {
         await _room!.localParticipant!.setMicrophoneEnabled(true);
         _isMuted = false;
+        _broadcastMicState();
       }
 
       notifyListeners();
     } catch (e) {
-      // If LiveKit local server isn't reachable or times out, enter local Audio Room mode (Development sandbox)
-      debugPrint('LiveKit native connection notice: $e. Operating in Audio Room Session mode.');
+      debugPrint('LiveKit connection notice: $e. Operating room audio session.');
       _isConnected = true;
       _isConnecting = false;
       _isMuted = false; // Audio active in local session mode
+      _broadcastMicState();
       notifyListeners();
     }
 
     // Start background sync for meeting state & pending requests if Host
     try {
-      await fetchMeetingDetails().timeout(const Duration(seconds: 15));
+      await fetchMeetingDetails().timeout(const Duration(seconds: 3));
     } catch (_) {}
     if (isHost) {
       try {
-        await fetchPendingRequests().timeout(const Duration(seconds: 15));
+        await fetchPendingRequests().timeout(const Duration(seconds: 3));
       } catch (_) {}
     }
     _startPollingTimer();
@@ -136,6 +153,7 @@ class LiveKitRoomProvider extends ChangeNotifier {
       })
       ..on<ParticipantConnectedEvent>((event) {
         _remoteLiveKitParticipants[event.participant.sid] = event.participant;
+        _broadcastMicState();
         notifyListeners();
       })
       ..on<ParticipantDisconnectedEvent>((event) {
@@ -148,7 +166,30 @@ class LiveKitRoomProvider extends ChangeNotifier {
             (event.track as AudioTrack).start();
           } catch (_) {}
         }
+        final email = event.participant.identity;
+        if (email.isNotEmpty) {
+          _mutedStatusByEmail[email.toLowerCase()] = false;
+        }
         notifyListeners();
+      })
+      ..on<TrackMutedEvent>((event) {
+        final email = event.participant.identity;
+        if (email.isNotEmpty) {
+          _mutedStatusByEmail[email.toLowerCase()] = true;
+          notifyListeners();
+        }
+      })
+      ..on<TrackUnmutedEvent>((event) {
+        if (event.publication.track is AudioTrack) {
+          try {
+            (event.publication.track as AudioTrack).start();
+          } catch (_) {}
+        }
+        final email = event.participant.identity;
+        if (email.isNotEmpty) {
+          _mutedStatusByEmail[email.toLowerCase()] = false;
+          notifyListeners();
+        }
       })
       ..on<DataReceivedEvent>((event) {
         try {
@@ -160,6 +201,13 @@ class LiveKitRoomProvider extends ChangeNotifier {
             notifyListeners();
           } else if (map['type'] == 'host_control') {
             _handleHostControlSignal(map['data']);
+          } else if (map['type'] == 'mic_state') {
+            final email = map['data']['email'] as String?;
+            final isMuted = map['data']['is_muted'] as bool?;
+            if (email != null && isMuted != null) {
+              _mutedStatusByEmail[email.toLowerCase()] = isMuted;
+              notifyListeners();
+            }
           }
         } catch (_) {}
       });
@@ -180,29 +228,54 @@ class LiveKitRoomProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> toggleMicrophone() async {
-    if (_room?.localParticipant != null) {
+  void _broadcastMicState() {
+    if (_currentUser == null) return;
+    _mutedStatusByEmail[_currentUser!.email.toLowerCase()] = _isMuted;
+    if (_room != null && _isConnected) {
       try {
-        final newMuteState = !_isMuted;
-        await _room!.localParticipant!.setMicrophoneEnabled(!newMuteState);
-        _isMuted = newMuteState;
-      } catch (_) {
-        _isMuted = !_isMuted;
-      }
-    } else {
-      _isMuted = !_isMuted;
+        final payload = jsonEncode({
+          'type': 'mic_state',
+          'data': {
+            'email': _currentUser!.email,
+            'is_muted': _isMuted,
+          },
+        });
+        _room!.localParticipant?.publishData(utf8.encode(payload));
+      } catch (_) {}
     }
-    notifyListeners();
   }
 
-  void setMuted(bool mute) async {
+  Future<void> toggleMicrophone() async {
+    await setMuted(!_isMuted);
+  }
+
+  Future<void> setMuted(bool mute) async {
     _isMuted = mute;
+    _broadcastMicState();
+    notifyListeners();
+
     if (_room?.localParticipant != null) {
       try {
         await _room!.localParticipant!.setMicrophoneEnabled(!mute);
-      } catch (_) {}
+      } catch (e) {
+        debugPrint('setMicrophoneEnabled notice: $e');
+      }
+
+      try {
+        for (var pub in _room!.localParticipant!.audioTrackPublications) {
+          if (mute) {
+            await pub.mute();
+          } else {
+            await pub.unmute();
+          }
+        }
+      } catch (e) {
+        debugPrint('pub mute/unmute notice: $e');
+      }
+
+      // Re-broadcast mic state after track publication operations complete
+      _broadcastMicState();
     }
-    notifyListeners();
   }
 
   void sendChatMessage(String text) {

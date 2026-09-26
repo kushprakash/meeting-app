@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../config/app_theme.dart';
+import '../../providers/app_config_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../widgets/custom_button.dart';
 import '../../widgets/custom_text_field.dart';
@@ -16,6 +17,7 @@ class RegisterScreen extends StatefulWidget {
 class _RegisterScreenState extends State<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
+  final _phoneController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
@@ -23,6 +25,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   @override
   void dispose() {
     _nameController.dispose();
+    _phoneController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
@@ -36,6 +39,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     final success = await auth.register(
       name: _nameController.text.trim(),
+      phone: _phoneController.text.trim(),
       email: email,
       password: _passwordController.text.trim(),
     );
@@ -61,6 +65,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   @override
   Widget build(BuildContext context) {
     final auth = Provider.of<AuthProvider>(context);
+    final appConfig = Provider.of<AppConfigProvider>(context);
 
     return Scaffold(
       appBar: AppBar(
@@ -75,7 +80,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Join MeetInt',
+                  'Join ${appConfig.appName}',
                   style: Theme.of(context).textTheme.displayLarge,
                 ),
                 const SizedBox(height: 8),
@@ -91,6 +96,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   prefixIcon: Icons.person_outline,
                   validator: (v) {
                     if (v == null || v.trim().isEmpty) return 'Full name is required';
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 20),
+                CustomTextField(
+                  controller: _phoneController,
+                  label: 'Mobile Number',
+                  hint: 'e.g. +91 9876543210',
+                  prefixIcon: Icons.phone_android_outlined,
+                  keyboardType: TextInputType.phone,
+                  validator: (v) {
+                    if (v == null || v.trim().isEmpty) return 'Mobile number is required';
+                    if (v.trim().length < 8) return 'Enter a valid mobile number';
                     return null;
                   },
                 ),

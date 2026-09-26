@@ -16,6 +16,13 @@ class _HostControlsDialogState extends State<HostControlsDialog> {
   bool _isMuted = true;
 
   @override
+  void initState() {
+    super.initState();
+    final room = Provider.of<LiveKitRoomProvider>(context, listen: false);
+    _isMuted = room.isParticipantMuted(widget.participant.email, userEmail: widget.participant.user?.email);
+  }
+
+  @override
   Widget build(BuildContext context) {
     final room = Provider.of<LiveKitRoomProvider>(context);
 
