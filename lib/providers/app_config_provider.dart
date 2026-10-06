@@ -3,10 +3,10 @@ import '../config/api_config.dart';
 import '../services/api_service.dart';
 
 class AppConfigProvider extends ChangeNotifier {
-  String _appName = 'VidBez';
-  String _companyName = 'VidBez Enterprise';
+  String _appName = 'Best Recharge';
+  String _companyName = 'Best Recharge Services';
   String? _logoUrl;
-  String _tagline = 'Enterprise Audio Meetings';
+  String _tagline = 'Instant Recharge & Utility Payments';
   bool _isLoading = false;
 
   String get appName => _appName;
@@ -29,15 +29,24 @@ class AppConfigProvider extends ChangeNotifier {
 
       if (res['status'] == 'success' && res['data']?['branding'] != null) {
         final b = res['data']['branding'];
-        if (b['app_name'] != null && b['app_name'].toString().trim().isNotEmpty) {
-          _appName = b['app_name'].toString().trim();
+        final String? serverName = b['app_name']?.toString().trim();
+        if (serverName != null && serverName.isNotEmpty) {
+          if (!serverName.toLowerCase().contains('vidbez') && !serverName.toLowerCase().contains('meetint')) {
+            _appName = serverName;
+          }
         }
-        if (b['company_name'] != null && b['company_name'].toString().trim().isNotEmpty) {
-          _companyName = b['company_name'].toString().trim();
+        final String? serverCompany = b['company_name']?.toString().trim();
+        if (serverCompany != null && serverCompany.isNotEmpty) {
+          if (!serverCompany.toLowerCase().contains('vidbez') && !serverCompany.toLowerCase().contains('meetint')) {
+            _companyName = serverCompany;
+          }
         }
         _logoUrl = b['logo_url'];
-        if (b['tagline'] != null && b['tagline'].toString().trim().isNotEmpty) {
-          _tagline = b['tagline'].toString().trim();
+        final String? serverTagline = b['tagline']?.toString().trim();
+        if (serverTagline != null && serverTagline.isNotEmpty) {
+          if (!serverTagline.toLowerCase().contains('webrtc')) {
+            _tagline = serverTagline;
+          }
         }
       }
     } catch (_) {}

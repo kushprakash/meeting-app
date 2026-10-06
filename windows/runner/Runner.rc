@@ -89,11 +89,11 @@ BEGIN
     BEGIN
         BLOCK "040904e4"
         BEGIN
-            VALUE "CompanyName", "com.meetint.app" "\0"
+            VALUE "CompanyName", "com.bestrecharge.app" "\0"
             VALUE "FileDescription", "meetint_app" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
             VALUE "InternalName", "meetint_app" "\0"
-            VALUE "LegalCopyright", "Copyright (C) 2026 com.meetint.app. All rights reserved." "\0"
+            VALUE "LegalCopyright", "Copyright (C) 2026 com.bestrecharge.app. All rights reserved." "\0"
             VALUE "OriginalFilename", "meetint_app.exe" "\0"
             VALUE "ProductName", "meetint_app" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"

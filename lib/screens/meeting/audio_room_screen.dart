@@ -32,6 +32,7 @@ class _AudioRoomScreenState extends State<AudioRoomScreen> {
   }
 
   void _openChat(BuildContext context) {
+    Provider.of<LiveKitRoomProvider>(context, listen: false).resetUnreadChatCount();
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -203,7 +204,7 @@ class _AudioRoomScreenState extends State<AudioRoomScreen> {
                 icon: const Icon(Icons.share, color: AppTheme.accentColor),
                 tooltip: 'Share Meeting Code',
                 onPressed: () {
-                  final text = 'Join my Audio Meeting on MeetInt!\n\nTitle: ${meeting.title}\nMeeting Code: ${meeting.uuid}\n\nJoin link: https://vidbez.com/meeting/${meeting.uuid}';
+                  final text = 'Join my Audio Room on Best Recharge!\n\nTitle: ${meeting.title}\nRoom Code: ${meeting.uuid}\n\nJoin link: https://bestrecharge.com/meeting/${meeting.uuid}';
                   Share.share(text, subject: 'Join Meeting: ${meeting.title}');
                 },
               ),
@@ -301,6 +302,92 @@ class _AudioRoomScreenState extends State<AudioRoomScreen> {
                   ],
                 ),
               ),
+
+            // Real-time Floating Incoming Chat Banner
+            if (room.latestIncomingChat != null)
+              Builder(
+                builder: (context) {
+                  final msg = room.latestIncomingChat!;
+                  return Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: AppTheme.cardDark,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: msg.isHost ? AppTheme.warning : AppTheme.accentColor, width: 1.5),
+                      boxShadow: const [
+                        BoxShadow(color: Colors.black45, blurRadius: 12, offset: Offset(0, 4)),
+                      ],
+                    ),
+                    child: Row(
+                      children: [
+                        CircleAvatar(
+                          radius: 16,
+                          backgroundColor: msg.isHost ? AppTheme.warning : AppTheme.accentColor,
+                          child: Text(
+                            msg.senderName.isNotEmpty ? msg.senderName[0].toUpperCase() : 'U',
+                            style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 13),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Row(
+                                children: [
+                                  Text(
+                                    msg.senderName,
+                                    style: TextStyle(
+                                      color: msg.isHost ? AppTheme.warning : AppTheme.accentColor,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                  if (msg.isHost) ...[
+                                    const SizedBox(width: 4),
+                                    const Icon(Icons.star, size: 12, color: AppTheme.warning),
+                                  ],
+                                ],
+                              ),
+                              Text(
+                                msg.message,
+                                style: const TextStyle(color: Colors.white, fontSize: 13),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.accentColor,
+                            foregroundColor: Colors.black,
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            minimumSize: Size.zero,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                          onPressed: () {
+                            room.clearLatestIncomingChat();
+                            _openChat(context);
+                          },
+                          child: const Text('Reply', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
+                        ),
+                        const SizedBox(width: 4),
+                        GestureDetector(
+                          onTap: () => room.clearLatestIncomingChat(),
+                          child: const Padding(
+                            padding: EdgeInsets.all(4.0),
+                            child: Icon(Icons.close, color: Colors.white54, size: 18),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
             // Participants Grid (excluding current user to prevent duplicate avatars)
             Expanded(
               child: Builder(
@@ -323,15 +410,15 @@ class _AudioRoomScreenState extends State<AudioRoomScreen> {
                   if (hostIdx > 0) {
                     final hostP = otherParticipants.removeAt(hostIdx);
                     otherParticipants.insert(0, hostP);
-                  } else if (hostIdx == -1 && !room.isHost && meeting?.host != null) {
+                  } else if (hostIdx == -1 && !room.isHost && meeting != null && meeting.host != null) {
                     otherParticipants.insert(0, ParticipantModel(
-                      id: meeting!.hostId,
-                      meetingId: meeting!.id,
-                      userId: meeting!.hostId,
-                      email: meeting!.host!.email,
+                      id: meeting.hostId,
+                      meetingId: meeting.id,
+                      userId: meeting.hostId,
+                      email: meeting.host!.email,
                       role: 'host',
                       status: 'joined',
-                      user: meeting!.host,
+                      user: meeting.host,
                     ));
                   }
 
@@ -434,18 +521,31 @@ class _AudioRoomScreenState extends State<AudioRoomScreen> {
                           border: Border.all(color: Colors.white10),
                         ),
                         child: Stack(
+                          clipBehavior: Clip.none,
                           children: [
                             const Icon(Icons.chat_bubble_outline, size: 28, color: Colors.white),
-                            if (room.chatMessages.isNotEmpty)
+                            if (room.unreadChatCount > 0)
                               Positioned(
-                                top: 0,
-                                right: 0,
+                                top: -6,
+                                right: -6,
                                 child: Container(
-                                  width: 10,
-                                  height: 10,
+                                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                                   decoration: const BoxDecoration(
-                                    color: AppTheme.accentColor,
+                                    color: Colors.red,
                                     shape: BoxShape.circle,
+                                  ),
+                                  constraints: const BoxConstraints(
+                                    minWidth: 18,
+                                    minHeight: 18,
+                                  ),
+                                  child: Text(
+                                    '${room.unreadChatCount}',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                    textAlign: TextAlign.center,
                                   ),
                                 ),
                               ),

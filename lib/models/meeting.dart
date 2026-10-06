@@ -5,6 +5,8 @@ class MeetingModel {
   final int id;
   final String uuid;
   final String title;
+  final String? description;
+  final double price;
   final int hostId;
   final String visibility; // 'private' or 'public'
   final bool approvalRequired;
@@ -26,6 +28,8 @@ class MeetingModel {
     required this.id,
     required this.uuid,
     required this.title,
+    this.description,
+    this.price = 0.0,
     required this.hostId,
     required this.visibility,
     required this.approvalRequired,
@@ -55,6 +59,8 @@ class MeetingModel {
       id: json['id'] is int ? json['id'] : int.parse(json['id'].toString()),
       uuid: json['uuid'] ?? '',
       title: json['title'] ?? 'Untitled Meeting',
+      description: json['description'],
+      price: json['price'] != null ? double.tryParse(json['price'].toString()) ?? 0.0 : 0.0,
       hostId: json['host_id'] is int ? json['host_id'] : int.parse(json['host_id'].toString()),
       visibility: json['visibility'] ?? 'public',
       approvalRequired: json['approval_required'] == true || json['approval_required'] == 1,

@@ -28,6 +28,8 @@ class LiveKitRoomProvider extends ChangeNotifier {
   List<ParticipantModel> _meetingParticipants = [];
   List<ParticipantModel> _pendingRequests = [];
   final List<ChatMessage> _chatMessages = [];
+  int _unreadChatCount = 0;
+  ChatMessage? _latestIncomingChat;
 
   // Active LiveKit remote participants & mic mute map
   final Map<String, Participant> _remoteLiveKitParticipants = {};
@@ -54,6 +56,18 @@ class LiveKitRoomProvider extends ChangeNotifier {
   List<ParticipantModel> get meetingParticipants => _meetingParticipants;
   List<ParticipantModel> get pendingRequests => _pendingRequests;
   List<ChatMessage> get chatMessages => List.unmodifiable(_chatMessages);
+  int get unreadChatCount => _unreadChatCount;
+  ChatMessage? get latestIncomingChat => _latestIncomingChat;
+
+  void resetUnreadChatCount() {
+    _unreadChatCount = 0;
+    notifyListeners();
+  }
+
+  void clearLatestIncomingChat() {
+    _latestIncomingChat = null;
+    notifyListeners();
+  }
 
   bool isParticipantMuted(String email, {String? userEmail}) {
     final cleanEmail = email.trim().toLowerCase();
@@ -197,8 +211,21 @@ class LiveKitRoomProvider extends ChangeNotifier {
           final map = jsonDecode(strData);
           if (map['type'] == 'chat') {
             final chat = ChatMessage.fromJson(map['data'], currentUserEmail: _currentUser?.email);
-            _chatMessages.add(chat);
-            notifyListeners();
+            
+            final isDuplicate = _chatMessages.any((m) =>
+              m.senderEmail.toLowerCase() == chat.senderEmail.toLowerCase() &&
+              m.message == chat.message &&
+              m.timestamp.difference(chat.timestamp).inSeconds.abs() < 3
+            );
+
+            if (!isDuplicate) {
+              _chatMessages.add(chat);
+              if (!chat.isMe) {
+                _unreadChatCount++;
+                _latestIncomingChat = chat;
+              }
+              notifyListeners();
+            }
           } else if (map['type'] == 'host_control') {
             _handleHostControlSignal(map['data']);
           } else if (map['type'] == 'mic_state') {
@@ -293,15 +320,17 @@ class LiveKitRoomProvider extends ChangeNotifier {
     _chatMessages.add(chatMsg);
     notifyListeners();
 
-    // Broadcast via LiveKit Data Channel if connected
+    // Broadcast via LiveKit Data Channel with reliable delivery guaranteed
     if (_room != null && _isConnected) {
       try {
         final payload = jsonEncode({
           'type': 'chat',
           'data': chatMsg.toJson(),
         });
-        _room!.localParticipant?.publishData(utf8.encode(payload));
-      } catch (_) {}
+        _room!.localParticipant?.publishData(utf8.encode(payload), reliable: true);
+      } catch (e) {
+        debugPrint('publishData notice: $e');
+      }
     }
   }
 

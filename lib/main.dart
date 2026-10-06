@@ -7,13 +7,16 @@ import 'providers/livekit_room_provider.dart';
 import 'providers/meeting_provider.dart';
 import 'screens/splash_screen.dart';
 
+import 'providers/wallet_provider.dart';
+import 'providers/banner_notification_provider.dart';
+
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(const MeetIntApp());
+  runApp(const BestRechargeApp());
 }
 
-class MeetIntApp extends StatelessWidget {
-  const MeetIntApp({super.key});
+class BestRechargeApp extends StatelessWidget {
+  const BestRechargeApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -23,6 +26,8 @@ class MeetIntApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => MeetingProvider()),
         ChangeNotifierProvider(create: (_) => LiveKitRoomProvider()),
+        ChangeNotifierProvider(create: (_) => WalletProvider()),
+        ChangeNotifierProvider(create: (_) => BannerNotificationProvider()),
       ],
       child: Consumer<AppConfigProvider>(
         builder: (context, appConfig, _) {

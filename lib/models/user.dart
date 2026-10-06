@@ -6,6 +6,7 @@ class UserModel {
   final String? accountType;
   final bool emailVerified;
   final String? createdAt;
+  final double walletBalance;
 
   UserModel({
     required this.id,
@@ -15,9 +16,17 @@ class UserModel {
     this.accountType,
     this.emailVerified = false,
     this.createdAt,
+    this.walletBalance = 0.0,
   });
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
+    double parsedBal = 0.0;
+    if (json['wallet_balance'] != null) {
+      parsedBal = double.tryParse(json['wallet_balance'].toString()) ?? 0.0;
+    } else if (json['balance'] != null) {
+      parsedBal = double.tryParse(json['balance'].toString()) ?? 0.0;
+    }
+
     return UserModel(
       id: json['id'] is int ? json['id'] : int.parse(json['id'].toString()),
       name: json['name'] ?? '',
@@ -26,6 +35,7 @@ class UserModel {
       accountType: json['account_type'],
       emailVerified: json['email_verified_at'] != null,
       createdAt: json['created_at'],
+      walletBalance: parsedBal,
     );
   }
 
@@ -44,6 +54,7 @@ class UserModel {
       'account_type': accountType,
       'email_verified_at': emailVerified ? DateTime.now().toIso8601String() : null,
       'created_at': createdAt,
+      'wallet_balance': walletBalance,
     };
   }
 }

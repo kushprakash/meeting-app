@@ -5,7 +5,7 @@ import '../../providers/app_config_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../widgets/custom_button.dart';
 import '../../widgets/custom_text_field.dart';
-import 'verify_otp_screen.dart';
+import '../home/home_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -21,6 +21,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
+  String _accountType = 'free'; // 'free' or 'corporate'
 
   @override
   void dispose() {
@@ -42,15 +43,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
       phone: _phoneController.text.trim(),
       email: email,
       password: _passwordController.text.trim(),
+      accountType: _accountType,
     );
 
     if (!mounted) return;
 
     if (success) {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-          builder: (_) => VerifyOtpScreen(email: email),
-        ),
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const HomeScreen()),
+        (route) => false,
       );
     } else if (auth.errorMessage != null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -68,9 +69,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     final appConfig = Provider.of<AppConfigProvider>(context);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Create Account'),
-      ),
+      appBar: AppBar(title: const Text('Create Account')),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
@@ -85,17 +84,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 ),
                 const SizedBox(height: 8),
                 const Text(
-                  'Create your account to host and join audio meetings',
+                  'Create your Account to Using Utility Services.',
                   style: TextStyle(color: AppTheme.textSecondary, fontSize: 14),
                 ),
-                const SizedBox(height: 32),
+                const SizedBox(height: 24),
+
                 CustomTextField(
                   controller: _nameController,
                   label: 'Full Name',
                   hint: 'John Doe',
                   prefixIcon: Icons.person_outline,
                   validator: (v) {
-                    if (v == null || v.trim().isEmpty) return 'Full name is required';
+                    if (v == null || v.trim().isEmpty)
+                      return 'Full name is required';
                     return null;
                   },
                 ),
@@ -107,8 +108,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   prefixIcon: Icons.phone_android_outlined,
                   keyboardType: TextInputType.phone,
                   validator: (v) {
-                    if (v == null || v.trim().isEmpty) return 'Mobile number is required';
-                    if (v.trim().length < 8) return 'Enter a valid mobile number';
+                    if (v == null || v.trim().isEmpty)
+                      return 'Mobile number is required';
+                    if (v.trim().length < 8)
+                      return 'Enter a valid mobile number';
                     return null;
                   },
                 ),
@@ -120,7 +123,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   prefixIcon: Icons.email_outlined,
                   keyboardType: TextInputType.emailAddress,
                   validator: (v) {
-                    if (v == null || v.trim().isEmpty) return 'Email is required';
+                    if (v == null || v.trim().isEmpty)
+                      return 'Email is required';
                     if (!v.contains('@')) return 'Enter a valid email address';
                     return null;
                   },
@@ -134,7 +138,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   obscureText: _obscurePassword,
                   suffixIcon: IconButton(
                     icon: Icon(
-                      _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                      _obscurePassword
+                          ? Icons.visibility_off
+                          : Icons.visibility,
                       color: Colors.white54,
                     ),
                     onPressed: () {
@@ -144,14 +150,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     },
                   ),
                   validator: (v) {
-                    if (v == null || v.trim().isEmpty) return 'Password is required';
-                    if (v.length < 6) return 'Password must be at least 6 characters';
+                    if (v == null || v.trim().isEmpty)
+                      return 'Password is required';
+                    if (v.length < 6)
+                      return 'Password must be at least 6 characters';
                     return null;
                   },
                 ),
                 const SizedBox(height: 32),
                 CustomButton(
-                  text: 'Register & Send OTP',
+                  text: 'Create Account',
                   isLoading: auth.isLoading,
                   onPressed: _handleRegister,
                 ),

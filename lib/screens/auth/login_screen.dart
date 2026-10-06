@@ -76,29 +76,37 @@ class _LoginScreenState extends State<LoginScreen> {
                 const SizedBox(height: 20),
                 Center(
                   child: Container(
-                    padding: const EdgeInsets.all(16),
+                    width: 90,
+                    height: 90,
                     decoration: BoxDecoration(
-                      color: AppTheme.primaryColor.withValues(alpha: 0.15),
                       shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppTheme.accentColor.withValues(alpha: 0.25),
+                          blurRadius: 12,
+                        ),
+                      ],
                     ),
-                    child: const Icon(
-                      Icons.lock_outline,
-                      size: 48,
-                      color: AppTheme.primaryLight,
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(20),
+                      child: Image.asset(
+                        'assets/images/app_icon.png',
+                        fit: BoxFit.cover,
+                      ),
                     ),
                   ),
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 20),
                 Center(
                   child: Text(
-                    'Welcome Back',
+                    'Best Recharge',
                     style: Theme.of(context).textTheme.displayLarge,
                   ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 6),
                 const Center(
                   child: Text(
-                    'Login to join or host audio meetings',
+                    'Instant Mobile & DTH Recharge App',
                     style: TextStyle(color: AppTheme.textSecondary, fontSize: 14),
                   ),
                 ),

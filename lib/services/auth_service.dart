@@ -7,13 +7,21 @@ class AuthService {
     String? phone,
     required String email,
     required String password,
+    String accountType = 'free',
   }) async {
-    return await ApiService.post('/register', {
+    final res = await ApiService.post('/register', {
       'name': name,
       'phone': phone ?? '',
       'email': email,
       'password': password,
+      'account_type': accountType,
     }, requireAuth: false);
+
+    if (res['status'] == 'success' && res['data']?['token'] != null) {
+      await ApiService.setToken(res['data']['token']);
+    }
+
+    return res;
   }
 
   Future<Map<String, dynamic>> verifyOtp({

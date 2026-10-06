@@ -37,11 +37,14 @@ class MeetingProvider extends ChangeNotifier {
 
   Future<MeetingModel?> createMeeting({
     required String title,
-    required String visibility,
-    required bool approvalRequired,
+    String? description,
+    double price = 0.0,
+    String visibility = 'public',
+    bool approvalRequired = false,
     required bool allowAudio,
     required bool allowChat,
     int durationMinutes = 60,
+    String? startsAt,
     List<String>? invitedEmails,
   }) async {
     _isLoading = true;
@@ -50,11 +53,14 @@ class MeetingProvider extends ChangeNotifier {
 
     final res = await _meetingService.createMeeting(
       title: title,
+      description: description,
+      price: price,
       visibility: visibility,
       approvalRequired: approvalRequired,
       allowAudio: allowAudio,
       allowChat: allowChat,
       durationMinutes: durationMinutes,
+      startsAt: startsAt,
       invitedEmails: invitedEmails,
     );
 

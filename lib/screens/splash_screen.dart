@@ -61,7 +61,7 @@ class _SplashScreenState extends State<SplashScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Set Laravel API Base URL:\n• Live Server: https://vidbez.com/api/v1\n• Localhost: http://10.0.2.2:8000/api/v1',
+              'Set Laravel API Base URL:\n• Live Production Server: https://vidbez.com/api/v1\n• Localhost: http://10.0.2.2:8000/api/v1',
               style: TextStyle(fontSize: 12, color: Colors.white70),
             ),
             const SizedBox(height: 12),
@@ -112,22 +112,29 @@ class _SplashScreenState extends State<SplashScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Container(
-                    width: 100,
-                    height: 100,
+                    width: 110,
+                    height: 110,
                     decoration: BoxDecoration(
-                      color: AppTheme.primaryColor.withValues(alpha: 0.2),
                       shape: BoxShape.circle,
-                      border: Border.all(color: AppTheme.primaryColor, width: 2),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppTheme.accentColor.withValues(alpha: 0.3),
+                          blurRadius: 16,
+                          spreadRadius: 2,
+                        ),
+                      ],
                     ),
-                    child: const Icon(
-                      Icons.record_voice_over,
-                      size: 50,
-                      color: AppTheme.accentColor,
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(24),
+                      child: Image.asset(
+                        'assets/images/app_icon.png',
+                        fit: BoxFit.cover,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 24),
                   Text(
-                    '${appConfig.appName} Audio',
+                    appConfig.appName,
                     style: const TextStyle(
                       fontSize: 32,
                       fontWeight: FontWeight.bold,

@@ -3,15 +3,20 @@ import 'api_service.dart';
 class MeetingService {
   Future<Map<String, dynamic>> createMeeting({
     required String title,
-    required String visibility, // 'public' or 'private'
-    required bool approvalRequired,
+    String? description,
+    double price = 0.0,
+    String visibility = 'public',
+    bool approvalRequired = false,
     required bool allowAudio,
     required bool allowChat,
     int durationMinutes = 60,
+    String? startsAt,
     List<String>? invitedEmails,
   }) async {
     return await ApiService.post('/meetings', {
       'title': title,
+      'description': description,
+      'price': price,
       'visibility': visibility,
       'approval_required': approvalRequired,
       'allow_audio': allowAudio,
@@ -19,6 +24,7 @@ class MeetingService {
       'allow_screen_share': false,
       'allow_chat': allowChat,
       'duration_minutes': durationMinutes,
+      'starts_at': startsAt,
       'invited_emails': invitedEmails ?? [],
     });
   }

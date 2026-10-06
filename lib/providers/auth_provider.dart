@@ -43,16 +43,24 @@ class AuthProvider extends ChangeNotifier {
     String? phone,
     required String email,
     required String password,
+    String accountType = 'free',
   }) async {
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
 
-    final res = await _authService.register(name: name, phone: phone, email: email, password: password);
+    final res = await _authService.register(
+      name: name,
+      phone: phone,
+      email: email,
+      password: password,
+      accountType: accountType,
+    );
     _isLoading = false;
 
-    if (res['status'] == 'pending_otp') {
-      _pendingEmail = email;
+    if (res['status'] == 'success' && res['data']?['user'] != null) {
+      _user = UserModel.fromJson(res['data']['user']);
+      _pendingEmail = null;
       notifyListeners();
       return true;
     } else {

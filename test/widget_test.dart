@@ -3,7 +3,7 @@ import 'package:meetint_app/main.dart';
 
 void main() {
   testWidgets('App smoke test', (WidgetTester tester) async {
-    await tester.pumpWidget(const MeetIntApp());
-    expect(find.byType(MeetIntApp), findsOneWidget);
+    await tester.pumpWidget(const BestRechargeApp());
+    expect(find.byType(BestRechargeApp), findsOneWidget);
   });
 }
