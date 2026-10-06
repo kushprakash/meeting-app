@@ -659,7 +659,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
 
               // 3. Utility Services Section Grid
-              const SliverToBoxAdapter(child: UtilityServicesGridWidget()),
+              SliverToBoxAdapter(child: UtilityServicesGridWidget()),
 
               // Corporate Host Feature: Upcoming Meetings Section
               if (isCorporate) ...[
