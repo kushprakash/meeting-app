@@ -16,167 +16,207 @@ class WalletCardWidget extends StatelessWidget {
         ? requiredAmount.toStringAsFixed(0)
         : '100';
     final controller = TextEditingController(text: defaultAmt);
+    bool isSubmitting = false;
+
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppTheme.cardDark,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Row(
-          children: [
-            Icon(Icons.add_card, color: AppTheme.accentColor),
-            SizedBox(width: 10),
-            Text(
-              'Add Money to Wallet',
-              style: TextStyle(color: Colors.white, fontSize: 18),
-            ),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (requiredAmount != null && requiredAmount > 0) ...[
-              Text(
-                'Required Meeting Fee: ₹${requiredAmount.toStringAsFixed(0)}. Please add funds to join.',
-                style: const TextStyle(
-                  color: AppTheme.warning,
-                  fontSize: 13,
-                  fontWeight: FontWeight.bold,
+      barrierDismissible: false,
+      builder: (ctx) => StatefulBuilder(
+        builder: (dialogCtx, setState) {
+          return AlertDialog(
+            backgroundColor: AppTheme.cardDark,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            title: const Row(
+              children: [
+                Icon(Icons.add_card, color: AppTheme.accentColor),
+                SizedBox(width: 10),
+                Text(
+                  'Add Money to Wallet',
+                  style: TextStyle(color: Colors.white, fontSize: 18),
                 ),
-              ),
-              const SizedBox(height: 12),
-            ],
-            const Text(
-              'Enter Amount (₹):',
-              style: TextStyle(color: AppTheme.textSecondary, fontSize: 13),
+              ],
             ),
-            const SizedBox(height: 10),
-            TextField(
-              controller: controller,
-              keyboardType: TextInputType.number,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-              decoration: const InputDecoration(
-                prefixText: '₹ ',
-                prefixStyle: TextStyle(
-                  color: AppTheme.accentColor,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (requiredAmount != null && requiredAmount > 0) ...[
+                  Text(
+                    'Required Meeting Fee: ₹${requiredAmount.toStringAsFixed(0)}. Please add funds to join.',
+                    style: const TextStyle(
+                      color: AppTheme.warning,
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                ],
+                const Text(
+                  'Enter Amount (₹):',
+                  style: TextStyle(color: AppTheme.textSecondary, fontSize: 13),
                 ),
-                hintText: '500',
-              ),
-            ),
-            const SizedBox(height: 16),
-            Wrap(
-              spacing: 8,
-              children: [50, 100, 200, 500, 1000, 2000].map((amt) {
-                return ActionChip(
-                  backgroundColor: AppTheme.surfaceDark,
-                  label: Text(
-                    '₹$amt',
-                    style: const TextStyle(color: AppTheme.accentColor),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: controller,
+                  enabled: !isSubmitting,
+                  keyboardType: TextInputType.number,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
                   ),
-                  onPressed: () {
-                    controller.text = amt.toString();
-                  },
-                );
-              }).toList(),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.accentColor,
-              foregroundColor: Colors.black,
-            ),
-            onPressed: () async {
-              final val = double.tryParse(controller.text.trim());
-              if (val != null && val > 0) {
-                Navigator.pop(ctx);
-                final walletProv = Provider.of<WalletProvider>(
-                  context,
-                  listen: false,
-                );
-
-                // Show loader dialog while initiating payment
-                showDialog(
-                  context: context,
-                  barrierDismissible: false,
-                  builder: (_) => const Center(
-                    child: CircularProgressIndicator(color: AppTheme.accentColor),
+                  decoration: const InputDecoration(
+                    prefixText: '₹ ',
+                    prefixStyle: TextStyle(
+                      color: AppTheme.accentColor,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    hintText: '500',
                   ),
-                );
-
-                final res = await walletProv.initiatePayment(val);
-                if (context.mounted) Navigator.pop(context); // Close loader
-
-                final Map<String, dynamic>? resData = res['data'] is Map<String, dynamic> ? (res['data'] as Map<String, dynamic>) : null;
-                final String? accessKey = resData?['access_key']?.toString();
-                final String? refId = resData?['reference_id']?.toString() ?? resData?['order_id']?.toString();
-                final String env = resData?['env']?.toString() ?? 'prod';
-                final bool isSuccess = res['status'] == 'success' || res['status'] == 1 || res['status'] == '1';
-
-                if (isSuccess && refId != null && accessKey != null && accessKey.isNotEmpty) {
-                  // Launch Native Easebuzz Android SDK ONLY
-                  await EasebuzzPgService.payWithEasebuzz(
-                    accessKey: accessKey,
-                    env: env,
-                  );
-
-                  // Verify payment status after native SDK finishes
-                  if (context.mounted) {
-                    showDialog(
-                      context: context,
-                      barrierDismissible: false,
-                      builder: (_) => const Center(
-                        child: CircularProgressIndicator(color: AppTheme.accentColor),
-                      ),
-                    );
-
-                    final verified = await walletProv.verifyPayment(refId);
-                    if (context.mounted) Navigator.pop(context); // Close loader
-
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            verified
-                                ? '₹${val.toStringAsFixed(2)} added to wallet successfully!'
-                                : (walletProv.errorMessage ?? 'Payment verification pending or cancelled'),
-                          ),
-                          backgroundColor: verified ? AppTheme.success : AppTheme.error,
+                ),
+                const SizedBox(height: 16),
+                if (!isSubmitting)
+                  Wrap(
+                    spacing: 8,
+                    children: [50, 100, 200, 500, 1000, 2000].map((amt) {
+                      return ActionChip(
+                        backgroundColor: AppTheme.surfaceDark,
+                        label: Text(
+                          '₹$amt',
+                          style: const TextStyle(color: AppTheme.accentColor),
                         ),
+                        onPressed: () {
+                          controller.text = amt.toString();
+                        },
                       );
-                    }
-                  }
-                } else {
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          res['message'] ?? walletProv.errorMessage ?? 'Payment Gateway Error: Minimum amount is ₹200',
+                    }).toList(),
+                  ),
+                if (isSubmitting) ...[
+                  const SizedBox(height: 12),
+                  const Center(
+                    child: Column(
+                      children: [
+                        CircularProgressIndicator(color: AppTheme.accentColor),
+                        SizedBox(height: 10),
+                        Text(
+                          'Initiating payment gateway...',
+                          style: TextStyle(color: AppTheme.textSecondary, fontSize: 12),
                         ),
-                        backgroundColor: AppTheme.error,
-                      ),
-                    );
-                  }
-                }
-              }
-            },
-            child: const Text(
-              'Add Funds',
-              style: TextStyle(fontWeight: FontWeight.bold),
+                      ],
+                    ),
+                  ),
+                ],
+              ],
             ),
-          ),
-        ],
+            actions: [
+              TextButton(
+                onPressed: isSubmitting ? null : () => Navigator.pop(ctx),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.accentColor,
+                  foregroundColor: Colors.black,
+                ),
+                onPressed: isSubmitting
+                    ? null
+                    : () async {
+                        final val = double.tryParse(controller.text.trim());
+                        if (val == null || val <= 0) {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Please enter a valid amount'),
+                                backgroundColor: AppTheme.error,
+                              ),
+                            );
+                          }
+                          return;
+                        }
+
+                        setState(() {
+                          isSubmitting = true;
+                        });
+
+                        final walletProv = Provider.of<WalletProvider>(
+                          context,
+                          listen: false,
+                        );
+
+                        final res = await walletProv.initiatePayment(val);
+
+                        final Map<String, dynamic>? resData =
+                            res['data'] is Map<String, dynamic>
+                                ? (res['data'] as Map<String, dynamic>)
+                                : null;
+                        final String? accessKey = resData?['access_key']?.toString();
+                        final String? refId =
+                            resData?['reference_id']?.toString() ??
+                            resData?['order_id']?.toString();
+                        final String env = resData?['env']?.toString() ?? 'prod';
+                        final bool isSuccess = res['status'] == 'success' ||
+                            res['status'] == 1 ||
+                            res['status'] == '1';
+
+                        if (isSuccess &&
+                            refId != null &&
+                            accessKey != null &&
+                            accessKey.isNotEmpty) {
+                          // Dismiss the dialog first
+                          Navigator.pop(ctx);
+
+                          // Launch Native Easebuzz Android SDK ONLY
+                          await EasebuzzPgService.payWithEasebuzz(
+                            accessKey: accessKey,
+                            env: env,
+                          );
+
+                          // Verify payment status after native SDK finishes
+                          if (context.mounted) {
+                            final verified = await walletProv.verifyPayment(refId);
+
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    verified
+                                        ? '₹${val.toStringAsFixed(2)} added to wallet successfully!'
+                                        : (walletProv.errorMessage ??
+                                            'Payment verification pending or cancelled'),
+                                  ),
+                                  backgroundColor:
+                                      verified ? AppTheme.success : AppTheme.error,
+                                ),
+                              );
+                            }
+                          }
+                        } else {
+                          setState(() {
+                            isSubmitting = false;
+                          });
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  res['message'] ??
+                                      walletProv.errorMessage ??
+                                      'Payment Gateway Error: Unable to initiate payment',
+                                ),
+                                backgroundColor: AppTheme.error,
+                              ),
+                            );
+                          }
+                        }
+                      },
+                child: const Text(
+                  'Add Funds',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }

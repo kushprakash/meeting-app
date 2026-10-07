@@ -3,16 +3,22 @@ import '../config/app_theme.dart';
 import '../screens/utility/electricity_bill_screen.dart';
 import '../screens/utility/mobile_recharge_screen.dart';
 
-class UtilityServicesGridWidget extends StatelessWidget {
+class UtilityServicesGridWidget extends StatefulWidget {
   const UtilityServicesGridWidget({super.key});
 
   @override
+  State<UtilityServicesGridWidget> createState() => _UtilityServicesGridWidgetState();
+}
+
+class _UtilityServicesGridWidgetState extends State<UtilityServicesGridWidget> {
+  bool _showAll = false;
+
+  @override
   Widget build(BuildContext context) {
-    final List<Map<String, dynamic>> services = [
+    final List<Map<String, dynamic>> allServices = [
       {
-        'title': 'Mobile',
-        'icon': Icons.phone_android_outlined,
-        'color': const Color(0xFF3B82F6),
+        'title': 'Mobile\nRecharge',
+        'icon': Icons.smartphone_outlined,
         'onTap': () {
           Navigator.push(
             context,
@@ -21,9 +27,23 @@ class UtilityServicesGridWidget extends StatelessWidget {
         },
       },
       {
-        'title': 'Electricity',
-        'icon': Icons.bolt_outlined,
-        'color': const Color(0xFFF59E0B),
+        'title': 'DTH\nRecharge',
+        'icon': Icons.settings_input_antenna_outlined,
+        'onTap': () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => const ElectricityBillScreen(
+                title: 'DTH Recharge',
+                category: 'DTH',
+              ),
+            ),
+          );
+        },
+      },
+      {
+        'title': 'Electricity\nBill Pay',
+        'icon': Icons.lightbulb_outline_rounded,
         'onTap': () {
           Navigator.push(
             context,
@@ -37,9 +57,8 @@ class UtilityServicesGridWidget extends StatelessWidget {
         },
       },
       {
-        'title': 'Loan Pay',
-        'icon': Icons.account_balance_outlined,
-        'color': const Color(0xFF10B981),
+        'title': 'Loan\nRepayment',
+        'icon': Icons.account_balance_wallet_outlined,
         'onTap': () {
           Navigator.push(
             context,
@@ -53,9 +72,8 @@ class UtilityServicesGridWidget extends StatelessWidget {
         },
       },
       {
-        'title': 'Fastag',
+        'title': 'Fastag\nRecharge',
         'icon': Icons.directions_car_outlined,
-        'color': const Color(0xFF8B5CF6),
         'onTap': () {
           Navigator.push(
             context,
@@ -69,9 +87,8 @@ class UtilityServicesGridWidget extends StatelessWidget {
         },
       },
       {
-        'title': 'LPG Gas',
+        'title': 'LPG Gas\nBill',
         'icon': Icons.local_fire_department_outlined,
-        'color': const Color(0xFFEF4444),
         'onTap': () {
           Navigator.push(
             context,
@@ -85,9 +102,8 @@ class UtilityServicesGridWidget extends StatelessWidget {
         },
       },
       {
-        'title': 'Broadband',
+        'title': 'Broadband\nBill',
         'icon': Icons.wifi_outlined,
-        'color': const Color(0xFF06B6D4),
         'onTap': () {
           Navigator.push(
             context,
@@ -101,9 +117,8 @@ class UtilityServicesGridWidget extends StatelessWidget {
         },
       },
       {
-        'title': 'Credit Card',
+        'title': 'Credit Card\nPay',
         'icon': Icons.credit_card_outlined,
-        'color': const Color(0xFFEC4899),
         'onTap': () {
           Navigator.push(
             context,
@@ -118,76 +133,129 @@ class UtilityServicesGridWidget extends StatelessWidget {
       },
     ];
 
+    final displayServices = _showAll ? allServices : allServices.take(4).toList();
+
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: AppTheme.cardDark,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+        boxShadow: const [
+          BoxShadow(
+            color: Colors.black38,
+            blurRadius: 16,
+            offset: Offset(0, 4),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          // Header Row with "Recharge & Bills" title and "See All" pill button
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Icon(Icons.grid_view_rounded, size: 18, color: AppTheme.accentColor),
-              SizedBox(width: 8),
-              Text(
-                'Recharge & Bill Services',
+              const Text(
+                'Recharge & Bills',
                 style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 15,
+                  color: AppTheme.textPrimary,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 17,
+                ),
+              ),
+              InkWell(
+                onTap: () {
+                  setState(() {
+                    _showAll = !_showAll;
+                  });
+                },
+                borderRadius: BorderRadius.circular(20),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: AppTheme.surfaceDark,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        _showAll ? Icons.keyboard_arrow_up : Icons.grid_view_rounded,
+                        size: 14,
+                        color: AppTheme.accentColor,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        _showAll ? 'Show Less' : 'See All',
+                        style: const TextStyle(
+                          color: AppTheme.accentColor,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 18),
+
+          // Grid View displaying tiles with AppTheme dark styling
           GridView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            itemCount: services.length,
+            itemCount: displayServices.length,
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 4,
-              mainAxisSpacing: 14,
-              crossAxisSpacing: 12,
-              childAspectRatio: 0.82,
+              mainAxisSpacing: 16,
+              crossAxisSpacing: 10,
+              childAspectRatio: 0.72,
             ),
             itemBuilder: (ctx, index) {
-              final item = services[index];
+              final item = displayServices[index];
               return InkWell(
                 onTap: item['onTap'] as VoidCallback?,
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(20),
                 child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisAlignment: MainAxisAlignment.start,
                   children: [
+                    // Theme Tile Box matching dark app palette
                     Container(
-                      padding: const EdgeInsets.all(12),
+                      width: 58,
+                      height: 58,
                       decoration: BoxDecoration(
-                        color: (item['color'] as Color).withValues(alpha: 0.15),
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: (item['color'] as Color).withValues(alpha: 0.4),
-                          width: 1.5,
-                        ),
+                        color: AppTheme.surfaceDark,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: Colors.white.withValues(alpha: 0.1), width: 1.5),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.2),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
                       ),
                       child: Icon(
                         item['icon'] as IconData,
-                        color: item['color'] as Color,
-                        size: 22,
+                        color: AppTheme.success, // Theme green/emerald color
+                        size: 26,
                       ),
                     ),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 8),
                     Text(
                       item['title'] as String,
                       textAlign: TextAlign.center,
-                      maxLines: 1,
+                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        color: AppTheme.textSecondary,
+                        color: AppTheme.textPrimary,
                         fontSize: 11,
-                        fontWeight: FontWeight.w500,
+                        fontWeight: FontWeight.w600,
+                        height: 1.2,
                       ),
                     ),
                   ],

@@ -15,6 +15,7 @@ import '../../widgets/status_badge.dart';
 import '../../widgets/utility_services_grid_widget.dart';
 import '../../widgets/wallet_card_widget.dart';
 import '../auth/login_screen.dart';
+import '../history/history_screens.dart';
 import '../meeting/audio_room_screen.dart';
 import 'create_meeting_screen.dart';
 
@@ -28,6 +29,8 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+
   String _formatDisplayDateTime(String? rawStr) {
     if (rawStr == null || rawStr.trim().isEmpty) return 'Now Active';
     try {
@@ -401,6 +404,277 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Widget _buildAppSidebar(BuildContext context) {
+    final auth = Provider.of<AuthProvider>(context);
+    final wallet = Provider.of<WalletProvider>(context);
+    final user = auth.user;
+
+    return Drawer(
+      backgroundColor: AppTheme.bgDarkBody,
+      child: SafeArea(
+        child: Column(
+          children: [
+            // User Header in Sidebar Drawer
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(20),
+              decoration: const BoxDecoration(
+                color: AppTheme.cardDark,
+                border: Border(
+                  bottom: BorderSide(color: Colors.white10, width: 1),
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 26,
+                        backgroundColor: AppTheme.accentColor,
+                        child: Text(
+                          user?.name.isNotEmpty == true
+                              ? user!.name.substring(0, 1).toUpperCase()
+                              : 'U',
+                          style: const TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              user?.name ?? 'User',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 17,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              user?.email ?? user?.phone ?? '',
+                              style: const TextStyle(
+                                color: AppTheme.textSecondary,
+                                fontSize: 12,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppTheme.surfaceDark,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: AppTheme.accentColor.withValues(alpha: 0.3),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.account_balance_wallet,
+                          size: 14,
+                          color: AppTheme.accentColor,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Wallet: ₹${wallet.walletBalance.toStringAsFixed(2)}',
+                          style: const TextStyle(
+                            color: AppTheme.accentColor,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // Drawer Items: Home, Add Fund History, Mobile Recharge History, DTH Recharge History, Bill Payment History, Meeting History, Passbook History
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                children: [
+                  _buildDrawerItem(
+                    icon: Icons.home_rounded,
+                    title: 'Home',
+                    onTap: () {
+                      Navigator.pop(context);
+                    },
+                  ),
+                  _buildDrawerItem(
+                    icon: Icons.add_card_rounded,
+                    title: 'Add Fund History',
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const HistoryScreen(
+                            type: HistoryType.addFund,
+                            title: 'Add Fund History',
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                  _buildDrawerItem(
+                    icon: Icons.phone_android_rounded,
+                    title: 'Mobile Recharge History',
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const HistoryScreen(
+                            type: HistoryType.mobileRecharge,
+                            title: 'Mobile Recharge History',
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                  _buildDrawerItem(
+                    icon: Icons.tv_rounded,
+                    title: 'DTH Recharge History',
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const HistoryScreen(
+                            type: HistoryType.dthRecharge,
+                            title: 'DTH Recharge History',
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                  _buildDrawerItem(
+                    icon: Icons.receipt_long_rounded,
+                    title: 'Bill Payment History',
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const HistoryScreen(
+                            type: HistoryType.billPayment,
+                            title: 'Bill Payment History',
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                  _buildDrawerItem(
+                    icon: Icons.video_camera_front_rounded,
+                    title: 'Meeting History',
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const HistoryScreen(
+                            type: HistoryType.meeting,
+                            title: 'Meeting History',
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                  _buildDrawerItem(
+                    icon: Icons.account_balance_wallet_rounded,
+                    title: 'Passbook History',
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const HistoryScreen(
+                            type: HistoryType.passbook,
+                            title: 'Passbook History',
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
+
+            const Divider(color: Colors.white10, height: 1),
+
+            // Logout at bottom
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: _buildDrawerItem(
+                icon: Icons.logout_rounded,
+                title: 'Logout',
+                iconColor: AppTheme.error,
+                textColor: AppTheme.error,
+                onTap: () async {
+                  Navigator.pop(context);
+                  await auth.logout();
+                  if (context.mounted) {
+                    Navigator.of(context).pushReplacement(
+                      MaterialPageRoute(
+                        builder: (_) => const LoginScreen(),
+                      ),
+                    );
+                  }
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDrawerItem({
+    required IconData icon,
+    required String title,
+    required VoidCallback onTap,
+    Color iconColor = AppTheme.accentColor,
+    Color textColor = Colors.white,
+  }) {
+    return ListTile(
+      leading: Icon(icon, color: iconColor, size: 22),
+      title: Text(
+        title,
+        style: TextStyle(
+          color: textColor,
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+      dense: true,
+      horizontalTitleGap: 12,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      onTap: onTap,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final auth = Provider.of<AuthProvider>(context);
@@ -430,6 +704,8 @@ class _HomeScreenState extends State<HomeScreen> {
     final upcomingMeetings = upcomingMap.values.toList();
 
     return Scaffold(
+      key: _scaffoldKey,
+      drawer: _buildAppSidebar(context),
       body: SafeArea(
         child: RefreshIndicator(
           onRefresh: _refreshAllData,
@@ -445,51 +721,66 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      // Top Left: Profile avatar icon & name
-                      Row(
-                        children: [
-                          CircleAvatar(
-                            radius: 20,
-                            backgroundColor: AppTheme.accentColor,
-                            child: Text(
-                              auth.user?.name.substring(0, 1).toUpperCase() ??
-                                  'U',
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.black,
-                              ),
-                            ),
+                      // Top Left: Profile avatar icon & name (opens drawer on click)
+                      InkWell(
+                        onTap: () {
+                          _scaffoldKey.currentState?.openDrawer();
+                        },
+                        borderRadius: BorderRadius.circular(12),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 4,
+                            vertical: 2,
                           ),
-                          const SizedBox(width: 10),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                          child: Row(
                             children: [
-                              Text(
-                                auth.user?.name ?? 'User',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
+                              CircleAvatar(
+                                radius: 20,
+                                backgroundColor: AppTheme.accentColor,
+                                child: Text(
+                                  auth.user?.name.isNotEmpty == true
+                                      ? auth.user!.name
+                                          .substring(0, 1)
+                                          .toUpperCase()
+                                      : 'U',
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.black,
+                                  ),
                                 ),
                               ),
-                              Text(
-                                isCorporate
-                                    ? 'Corporate Account (${auth.user?.accountType})'
-                                    : 'Best Recharge Member',
-                                style: TextStyle(
-                                  color: isCorporate
-                                      ? AppTheme.accentColor
-                                      : AppTheme.textMuted,
-                                  fontSize: 11,
-                                  fontWeight: isCorporate
-                                      ? FontWeight.bold
-                                      : FontWeight.normal,
-                                ),
+                              const SizedBox(width: 10),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    auth.user?.name ?? 'User',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16,
+                                    ),
+                                  ),
+                                  Text(
+                                    isCorporate
+                                        ? 'Corporate Account (${auth.user?.accountType})'
+                                        : 'Best Recharge Member',
+                                    style: TextStyle(
+                                      color: isCorporate
+                                          ? AppTheme.accentColor
+                                          : AppTheme.textMuted,
+                                      fontSize: 11,
+                                      fontWeight: isCorporate
+                                          ? FontWeight.bold
+                                          : FontWeight.normal,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ],
                           ),
-                        ],
+                        ),
                       ),
                       // Top Right: Notification Bell Icon with Badge Count & Logout
                       Row(
