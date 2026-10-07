@@ -23,17 +23,21 @@ class MainActivity : FlutterFragmentActivity() {
             val pendingResult = pendingEasebuzzResult
             pendingEasebuzzResult = null
             if (pendingResult != null) {
-                val responseMap = hashMapOf<String, Any?>()
-                if (data != null) {
-                    val resultStr = data.getStringExtra("result") ?: ""
-                    val paymentResponseStr = data.getStringExtra("payment_response") ?: ""
-                    responseMap["result"] = resultStr
-                    responseMap["payment_response"] = paymentResponseStr
-                } else {
-                    responseMap["result"] = "user_cancelled"
-                    responseMap["payment_response"] = "No response data"
+                try {
+                    val responseMap = hashMapOf<String, Any?>()
+                    if (data != null) {
+                        val resultStr = data.getStringExtra("result") ?: ""
+                        val paymentResponseStr = data.getStringExtra("payment_response") ?: ""
+                        responseMap["result"] = resultStr
+                        responseMap["payment_response"] = paymentResponseStr
+                    } else {
+                        responseMap["result"] = "user_cancelled"
+                        responseMap["payment_response"] = "No response data"
+                    }
+                    pendingResult.success(responseMap)
+                } catch (e: Exception) {
+                    Log.e("EASEBUZZ_PG", "Error returning result from onActivityResult", e)
                 }
-                pendingResult.success(responseMap)
             }
         }
     }

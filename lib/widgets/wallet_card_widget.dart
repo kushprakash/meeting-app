@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../config/app_theme.dart';
 import '../models/passbook_item.dart';
 import '../providers/wallet_provider.dart';
@@ -154,25 +155,47 @@ class WalletCardWidget extends StatelessWidget {
                         final String? refId =
                             resData?['reference_id']?.toString() ??
                             resData?['order_id']?.toString();
+                        final String? paymentUrl = resData?['payment_url']?.toString();
                         final String env = resData?['env']?.toString() ?? 'prod';
                         final bool isSuccess = res['status'] == 'success' ||
                             res['status'] == 1 ||
                             res['status'] == '1';
 
-                        if (isSuccess &&
-                            refId != null &&
-                            accessKey != null &&
-                            accessKey.isNotEmpty) {
+                        if (isSuccess && refId != null) {
                           // Dismiss the dialog first
                           Navigator.pop(ctx);
 
-                          // Launch Native Easebuzz Android SDK ONLY
-                          await EasebuzzPgService.payWithEasebuzz(
-                            accessKey: accessKey,
-                            env: env,
-                          );
+                          bool launched = false;
 
-                          // Verify payment status after native SDK finishes
+                          // 1. Try Native Easebuzz SDK first if accessKey is valid
+                          if (accessKey != null && accessKey.isNotEmpty) {
+                            try {
+                              final pgResult = await EasebuzzPgService.payWithEasebuzz(
+                                accessKey: accessKey,
+                                env: env,
+                              );
+                              if (pgResult.isSuccess) {
+                                launched = true;
+                              }
+                            } catch (e) {
+                              debugPrint('Easebuzz Native SDK Exception: $e');
+                            }
+                          }
+
+                          // 2. Fallback to Web Payment Gateway URL if Native SDK didn't launch or complete
+                          if (!launched && paymentUrl != null && paymentUrl.isNotEmpty) {
+                            try {
+                              final uri = Uri.parse(paymentUrl);
+                              if (await canLaunchUrl(uri)) {
+                                await launchUrl(uri, mode: LaunchMode.externalApplication);
+                                launched = true;
+                              }
+                            } catch (e) {
+                              debugPrint('url_launcher Error: $e');
+                            }
+                          }
+
+                          // 3. Verify Payment status after native SDK or browser flow finishes
                           if (context.mounted) {
                             final verified = await walletProv.verifyPayment(refId);
 
