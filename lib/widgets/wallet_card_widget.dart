@@ -136,6 +136,10 @@ class WalletCardWidget extends StatelessWidget {
                           return;
                         }
 
+                        // 1. Prompt Financial Risk Threshold & 18+ Age Warning Confirmation FIRST
+                        final confirmed = await _showFinancialRiskWarningDialog(context, val);
+                        if (!confirmed || !context.mounted) return; // User cancelled or unmounted
+
                         setState(() {
                           isSubmitting = true;
                         });
@@ -163,7 +167,7 @@ class WalletCardWidget extends StatelessWidget {
 
                         if (isSuccess && refId != null) {
                           // Dismiss the dialog first
-                          Navigator.pop(ctx);
+                          if (ctx.mounted) Navigator.pop(ctx);
 
                           bool launched = false;
 
@@ -242,6 +246,168 @@ class WalletCardWidget extends StatelessWidget {
         },
       ),
     );
+  }
+
+  static Future<bool> _showFinancialRiskWarningDialog(
+    BuildContext context,
+    double amount,
+  ) async {
+    final bool? result = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.cardDark,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: AppTheme.warning, size: 28),
+            SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'Financial Risk & Age Disclaimer',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: AppTheme.accentColor.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: AppTheme.accentColor.withValues(alpha: 0.4),
+                ),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Amount to Add:',
+                    style: TextStyle(color: Colors.white70, fontSize: 12.5),
+                  ),
+                  Text(
+                    '₹${amount.toStringAsFixed(2)}',
+                    style: const TextStyle(
+                      color: AppTheme.accentColor,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 15,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppTheme.surfaceDark,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: AppTheme.warning.withValues(alpha: 0.3),
+                ),
+              ),
+              child: const Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.eighteen_up_rating, color: AppTheme.warning, size: 20),
+                      SizedBox(width: 8),
+                      Text(
+                        '18+ Years Member Requirement',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 6),
+                  Text(
+                    'By proceeding, you confirm that you are at least 18 years of age or operating under parent/guardian supervision.',
+                    style: TextStyle(
+                      color: AppTheme.textSecondary,
+                      fontSize: 11.5,
+                      height: 1.35,
+                    ),
+                  ),
+                  SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Icon(Icons.shield_outlined, color: AppTheme.info, size: 18),
+                      SizedBox(width: 8),
+                      Text(
+                        'Financial Risk Threshold',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 4),
+                  Text(
+                    'Wallet transactions carry financial risk responsibility. Funds added will be used for platform utility recharges and meeting entry fees.',
+                    style: TextStyle(
+                      color: AppTheme.textSecondary,
+                      fontSize: 11.5,
+                      height: 1.35,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'Do you agree to these terms and wish to launch the Payment Gateway?',
+              style: TextStyle(
+                color: Colors.white70,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(color: AppTheme.textSecondary),
+            ),
+          ),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.accentColor,
+              foregroundColor: Colors.black,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            icon: const Icon(Icons.verified_user_outlined, size: 16),
+            label: const Text(
+              'I Agree & Launch PG',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    return result ?? false;
   }
 
   void _showHistorySheet(BuildContext context) {

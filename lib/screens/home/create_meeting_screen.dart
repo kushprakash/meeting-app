@@ -90,7 +90,10 @@ class _CreateMeetingScreenState extends State<CreateMeetingScreen> {
   void _handleCreate() async {
     if (!_formKey.currentState!.validate()) return;
 
-    final meetingProvider = Provider.of<MeetingProvider>(context, listen: false);
+    final meetingProvider = Provider.of<MeetingProvider>(
+      context,
+      listen: false,
+    );
 
     final DateTime fullScheduledDateTime = DateTime(
       _selectedDate.year,
@@ -130,9 +133,15 @@ class _CreateMeetingScreenState extends State<CreateMeetingScreen> {
 
   void _enterMeetingRoom(String uuid, BuildContext dialogContext) async {
     Navigator.pop(dialogContext); // Close dialog
-    final meetingProvider = Provider.of<MeetingProvider>(context, listen: false);
+    final meetingProvider = Provider.of<MeetingProvider>(
+      context,
+      listen: false,
+    );
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final livekitRoom = Provider.of<LiveKitRoomProvider>(context, listen: false);
+    final livekitRoom = Provider.of<LiveKitRoomProvider>(
+      context,
+      listen: false,
+    );
 
     showDialog(
       context: context,
@@ -147,13 +156,16 @@ class _CreateMeetingScreenState extends State<CreateMeetingScreen> {
       if (res['status'] == 'success' && res['data']?['access'] == 'granted') {
         final data = res['data'];
         final token = data['token'];
-        final livekitHost = data['livekit_host'] ?? 'wss://bestrecharge.com/livekit/';
+        final livekitHost =
+            data['livekit_host'] ?? 'wss://bestrecharge.com/livekit/';
         final role = data['role'] ?? 'host';
 
         MeetingModel meeting = MeetingModel(
           id: 0,
           uuid: uuid,
-          title: _titleController.text.trim().isEmpty ? 'Audio Room' : _titleController.text.trim(),
+          title: _titleController.text.trim().isEmpty
+              ? 'Audio Room'
+              : _titleController.text.trim(),
           hostId: authProvider.user?.id ?? 0,
           visibility: 'public',
           approvalRequired: false,
@@ -176,9 +188,9 @@ class _CreateMeetingScreenState extends State<CreateMeetingScreen> {
         Navigator.pop(context); // Close loader
         Navigator.pop(context); // Exit create screen
 
-        Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => const AudioRoomScreen()),
-        );
+        Navigator.of(
+          context,
+        ).push(MaterialPageRoute(builder: (_) => const AudioRoomScreen()));
       } else {
         if (!mounted) return;
         Navigator.pop(context); // Close loader
@@ -212,7 +224,10 @@ class _CreateMeetingScreenState extends State<CreateMeetingScreen> {
           children: [
             Icon(Icons.check_circle, color: AppTheme.success, size: 28),
             SizedBox(width: 10),
-            Text('Meeting Created!', style: TextStyle(color: Colors.white, fontSize: 18)),
+            Text(
+              'Meeting Created!',
+              style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+            ),
           ],
         ),
         content: Column(
@@ -221,12 +236,43 @@ class _CreateMeetingScreenState extends State<CreateMeetingScreen> {
           children: [
             Text(
               title,
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 6),
             const Text(
               'Your meeting room has been successfully created.',
               style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
+            ),
+            const SizedBox(height: 14),
+            // Explicit English Note Container
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppTheme.surfaceDark,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppTheme.accentColor.withValues(alpha: 0.3)),
+              ),
+              child: const Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.info_outline, color: AppTheme.accentColor, size: 20),
+                  SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Note: If you want to start the meeting immediately, click "Join Instant Meeting". Otherwise, click "Join Later".',
+                      style: TextStyle(
+                        color: Colors.white70,
+                        fontSize: 12,
+                        height: 1.4,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ],
         ),
@@ -234,37 +280,49 @@ class _CreateMeetingScreenState extends State<CreateMeetingScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              // Left side: Red Close button -> Returns to Dashboard Home page
+              // Left side: Join Later button -> Closes dialog & returns home
               ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.error,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  backgroundColor: AppTheme.surfaceDark,
+                  foregroundColor: Colors.white70,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 10,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    side: const BorderSide(color: Colors.white10),
+                  ),
                 ),
                 onPressed: () {
                   Navigator.pop(ctx);
                   Navigator.of(context).popUntil((route) => route.isFirst);
                 },
-                icon: const Icon(Icons.close, size: 18),
+                icon: const Icon(Icons.schedule, size: 16, color: AppTheme.textSecondary),
                 label: const Text(
-                  'Close',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                  'Join Later',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5),
                 ),
               ),
-              // Right side: Info Join button -> Enters meeting room directly
+              const SizedBox(width: 8),
+              // Right side: Join Instant Meeting button -> Enters meeting room directly
               ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.info,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  backgroundColor: AppTheme.accentColor,
+                  foregroundColor: Colors.black,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 10,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
                 onPressed: () => _enterMeetingRoom(uuid, ctx),
-                icon: const Icon(Icons.meeting_room, size: 18),
+                icon: const Icon(Icons.flash_on, size: 18),
                 label: const Text(
-                  'Join Room',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                  'Join Instant Meeting',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5),
                 ),
               ),
             ],
@@ -278,13 +336,13 @@ class _CreateMeetingScreenState extends State<CreateMeetingScreen> {
   Widget build(BuildContext context) {
     final meetingProvider = Provider.of<MeetingProvider>(context);
 
-    final String formattedDate = DateFormat('EEE, dd MMM yyyy').format(_selectedDate);
+    final String formattedDate = DateFormat(
+      'EEE, dd MMM yyyy',
+    ).format(_selectedDate);
     final String formattedTime = _selectedTime.format(context);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Host Audio Meeting'),
-      ),
+      appBar: AppBar(title: const Text('Host Audio Meeting')),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
@@ -309,7 +367,9 @@ class _CreateMeetingScreenState extends State<CreateMeetingScreen> {
                   hint: 'e.g. Daily Tech Sync / Premium Masterclass',
                   prefixIcon: Icons.title_outlined,
                   validator: (v) {
-                    if (v == null || v.trim().isEmpty) return 'Title is required';
+                    if (v == null || v.trim().isEmpty) {
+                      return 'Title is required';
+                    }
                     return null;
                   },
                 ),
@@ -329,8 +389,12 @@ class _CreateMeetingScreenState extends State<CreateMeetingScreen> {
                   prefixIcon: Icons.currency_rupee,
                   keyboardType: TextInputType.number,
                   validator: (v) {
-                    if (v == null || v.trim().isEmpty) return 'Please set meeting price (0 for Free)';
-                    if (double.tryParse(v.trim()) == null) return 'Enter a valid amount';
+                    if (v == null || v.trim().isEmpty) {
+                      return 'Please set meeting price (0 for Free)';
+                    }
+                    if (double.tryParse(v.trim()) == null) {
+                      return 'Enter a valid amount';
+                    }
                     return null;
                   },
                 ),
@@ -338,7 +402,11 @@ class _CreateMeetingScreenState extends State<CreateMeetingScreen> {
                 // Schedule Date & Time Selectors
                 const Text(
                   'Schedule Date & Time',
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: Colors.white70),
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.white70,
+                  ),
                 ),
                 const SizedBox(height: 10),
                 Row(
@@ -348,7 +416,10 @@ class _CreateMeetingScreenState extends State<CreateMeetingScreen> {
                         onTap: _pickDate,
                         borderRadius: BorderRadius.circular(12),
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 14,
+                          ),
                           decoration: BoxDecoration(
                             color: AppTheme.surfaceDark,
                             borderRadius: BorderRadius.circular(12),
@@ -356,9 +427,19 @@ class _CreateMeetingScreenState extends State<CreateMeetingScreen> {
                           ),
                           child: Row(
                             children: [
-                              const Icon(Icons.calendar_today, color: AppTheme.accentColor, size: 18),
+                              const Icon(
+                                Icons.calendar_today,
+                                color: AppTheme.accentColor,
+                                size: 18,
+                              ),
                               const SizedBox(width: 8),
-                              Text(formattedDate, style: const TextStyle(color: Colors.white, fontSize: 13)),
+                              Text(
+                                formattedDate,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 13,
+                                ),
+                              ),
                             ],
                           ),
                         ),
@@ -370,7 +451,10 @@ class _CreateMeetingScreenState extends State<CreateMeetingScreen> {
                         onTap: _pickTime,
                         borderRadius: BorderRadius.circular(12),
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 14,
+                          ),
                           decoration: BoxDecoration(
                             color: AppTheme.surfaceDark,
                             borderRadius: BorderRadius.circular(12),
@@ -378,9 +462,19 @@ class _CreateMeetingScreenState extends State<CreateMeetingScreen> {
                           ),
                           child: Row(
                             children: [
-                              const Icon(Icons.access_time, color: AppTheme.accentColor, size: 18),
+                              const Icon(
+                                Icons.access_time,
+                                color: AppTheme.accentColor,
+                                size: 18,
+                              ),
                               const SizedBox(width: 8),
-                              Text(formattedTime, style: const TextStyle(color: Colors.white, fontSize: 13)),
+                              Text(
+                                formattedTime,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 13,
+                                ),
+                              ),
                             ],
                           ),
                         ),
@@ -395,14 +489,50 @@ class _CreateMeetingScreenState extends State<CreateMeetingScreen> {
                   style: const TextStyle(color: Colors.white, fontSize: 14),
                   decoration: const InputDecoration(
                     labelText: 'Duration (End Time)',
-                    prefixIcon: Icon(Icons.timer_outlined, color: AppTheme.accentColor),
+                    prefixIcon: Icon(
+                      Icons.timer_outlined,
+                      color: AppTheme.accentColor,
+                    ),
                   ),
                   items: const [
                     DropdownMenuItem(value: 15, child: Text('15 Minutes')),
                     DropdownMenuItem(value: 30, child: Text('30 Minutes')),
-                    DropdownMenuItem(value: 60, child: Text('60 Minutes (Standard Default)')),
-                    DropdownMenuItem(value: 90, child: Text('90 Minutes')),
-                    DropdownMenuItem(value: 120, child: Text('120 Minutes (2 Hours)')),
+                    DropdownMenuItem(
+                      value: 60,
+                      child: Text('60 Minutes (1 Hour)'),
+                    ),
+                    DropdownMenuItem(
+                      value: 90,
+                      child: Text('90 Minutes (1.5 Hours)'),
+                    ),
+                    DropdownMenuItem(
+                      value: 120,
+                      child: Text('120 Minutes (2 Hours)'),
+                    ),
+                    DropdownMenuItem(
+                      value: 180,
+                      child: Text('180 Minutes (3 Hours)'),
+                    ),
+                    DropdownMenuItem(
+                      value: 240,
+                      child: Text('240 Minutes (4 Hours)'),
+                    ),
+                    DropdownMenuItem(
+                      value: 300,
+                      child: Text('300 Minutes (5 Hours)'),
+                    ),
+                    DropdownMenuItem(
+                      value: 360,
+                      child: Text('360 Minutes (6 Hours)'),
+                    ),
+                    DropdownMenuItem(
+                      value: 420,
+                      child: Text('420 Minutes (7 Hours)'),
+                    ),
+                    DropdownMenuItem(
+                      value: 480,
+                      child: Text('480 Minutes (8 Hours)'),
+                    ),
                   ],
                   onChanged: (val) {
                     if (val != null) {
@@ -420,11 +550,17 @@ class _CreateMeetingScreenState extends State<CreateMeetingScreen> {
                   activeTrackColor: AppTheme.accentColor,
                   title: const Text(
                     'Allow Microphone Audio',
-                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                   subtitle: const Text(
                     'Participants can unmute & speak in the audio room',
-                    style: TextStyle(color: AppTheme.textSecondary, fontSize: 12),
+                    style: TextStyle(
+                      color: AppTheme.textSecondary,
+                      fontSize: 12,
+                    ),
                   ),
                   value: _allowAudio,
                   onChanged: (val) {
@@ -438,11 +574,17 @@ class _CreateMeetingScreenState extends State<CreateMeetingScreen> {
                   activeTrackColor: AppTheme.accentColor,
                   title: const Text(
                     'Allow In-Meeting Chat',
-                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                   subtitle: const Text(
                     'Enable live text messaging room',
-                    style: TextStyle(color: AppTheme.textSecondary, fontSize: 12),
+                    style: TextStyle(
+                      color: AppTheme.textSecondary,
+                      fontSize: 12,
+                    ),
                   ),
                   value: _allowChat,
                   onChanged: (val) {

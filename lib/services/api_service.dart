@@ -7,6 +7,9 @@ class ApiService {
   static const String keyToken = 'auth_token';
   static const String keyPendingMeeting = 'pending_meeting_uuid';
 
+  static Function(String message)? onSessionExpired;
+  static bool isSessionDialogShowing = false;
+
   static Future<String?> getToken() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString(keyToken);
@@ -94,6 +97,19 @@ class ApiService {
     try {
       final json = jsonDecode(response.body);
       if (json is Map<String, dynamic>) {
+        if (response.statusCode == 401 || json['code'] == 'SESSION_DESTROYED') {
+          removeToken();
+          final msg = json['message'] ?? 'Your login session was destroyed because your account logged in from another device.';
+          if (!isSessionDialogShowing) {
+            onSessionExpired?.call(msg);
+          }
+          return {
+            'status': 'error',
+            'code': json['code'] ?? 'SESSION_DESTROYED',
+            'message': msg,
+            'data': json['data'],
+          };
+        }
         if (response.statusCode >= 200 && response.statusCode < 300) {
           return json;
         } else if (response.statusCode == 202) {
@@ -108,8 +124,32 @@ class ApiService {
           };
         }
       }
+      if (response.statusCode == 401) {
+        removeToken();
+        const msg = 'Your login session was destroyed because your account logged in from another device.';
+        if (!isSessionDialogShowing) {
+          onSessionExpired?.call(msg);
+        }
+        return {
+          'status': 'error',
+          'code': 'SESSION_DESTROYED',
+          'message': msg,
+        };
+      }
       return {'status': 'error', 'message': 'Unexpected server response.'};
     } catch (e) {
+      if (response.statusCode == 401) {
+        removeToken();
+        const msg = 'Your login session was destroyed because your account logged in from another device.';
+        if (!isSessionDialogShowing) {
+          onSessionExpired?.call(msg);
+        }
+        return {
+          'status': 'error',
+          'code': 'SESSION_DESTROYED',
+          'message': msg,
+        };
+      }
       return {
         'status': 'error',
         'message': 'Failed to parse response: ${response.body}',

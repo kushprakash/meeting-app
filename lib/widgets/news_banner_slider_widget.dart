@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import '../config/api_config.dart';
 import '../config/app_theme.dart';
 import '../models/banner_item.dart';
 import '../providers/auth_provider.dart';
@@ -21,6 +22,17 @@ class _NewsBannerSliderWidgetState extends State<NewsBannerSliderWidget> {
   late PageController _pageController;
   Timer? _timer;
   int _currentPage = 0;
+
+  String _resolveImageUrl(String rawUrl) {
+    if (rawUrl.startsWith('http://') || rawUrl.startsWith('https://')) {
+      return rawUrl;
+    }
+    String domain = ApiConfig.defaultBaseUrl.replaceAll('/api/v1', '');
+    if (!rawUrl.startsWith('/')) {
+      rawUrl = '/$rawUrl';
+    }
+    return '$domain$rawUrl';
+  }
 
   @override
   void initState() {
@@ -54,6 +66,29 @@ class _NewsBannerSliderWidgetState extends State<NewsBannerSliderWidget> {
     final currentUserId = authProv.user?.id;
     final isHost = (currentUserId != null && banner.hostId == currentUserId) ||
         meetingProv.hostedMeetings.any((m) => m.uuid == banner.meetingUuid);
+
+    // Rule Check: If user is NOT host and meeting is not started by host yet -> Block entry & payment!
+    if (!isHost && !banner.isLive) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Row(
+            children: [
+              Icon(Icons.info_outline, color: Colors.white),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Meeting Not Started. Please wait to Start Meeting',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: AppTheme.error,
+          duration: Duration(seconds: 4),
+        ),
+      );
+      return;
+    }
 
     // Host user, free meetings, OR already paid meetings require NO payment! Direct join without payment dialog.
     if (isHost || banner.price <= 0 || banner.alreadyPaid) {
@@ -189,18 +224,12 @@ class _NewsBannerSliderWidgetState extends State<NewsBannerSliderWidget> {
                   itemCount: banners.length,
                   itemBuilder: (context, index) {
                     final BannerItemModel banner = banners[index];
+                    final bool hasImage = banner.imageUrl != null && banner.imageUrl!.trim().isNotEmpty;
+                    final String? imageUrl = hasImage ? _resolveImageUrl(banner.imageUrl!) : null;
 
                     return Container(
                       margin: const EdgeInsets.symmetric(horizontal: 6),
-                      padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: banner.isMeeting
-                              ? [const Color(0xFF1E293B), const Color(0xFF0F172A)]
-                              : [AppTheme.primaryColor, AppTheme.cardDark],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
                         borderRadius: BorderRadius.circular(18),
                         border: Border.all(
                           color: banner.isMeeting ? AppTheme.accentColor.withValues(alpha: 0.4) : Colors.white10,
@@ -214,153 +243,230 @@ class _NewsBannerSliderWidgetState extends State<NewsBannerSliderWidget> {
                           ),
                         ],
                       ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          // 1. Top Row: Meeting Badge Tag & Joining Fee
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Row(
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                    decoration: BoxDecoration(
-                                      color: banner.isMeeting ? AppTheme.accentColor : AppTheme.info,
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Icon(
-                                          banner.isMeeting ? Icons.mic : Icons.campaign,
-                                          size: 11,
-                                          color: Colors.black,
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(18),
+                        child: Stack(
+                          children: [
+                            // 1. Background Image or Gradient
+                            Positioned.fill(
+                              child: imageUrl != null
+                                  ? Image.network(
+                                      imageUrl,
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (context, error, stackTrace) {
+                                        return Container(
+                                          decoration: BoxDecoration(
+                                            gradient: LinearGradient(
+                                              colors: banner.isMeeting
+                                                  ? [const Color(0xFF1E293B), const Color(0xFF0F172A)]
+                                                  : [AppTheme.primaryColor, AppTheme.cardDark],
+                                              begin: Alignment.topLeft,
+                                              end: Alignment.bottomRight,
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                    )
+                                  : Container(
+                                      decoration: BoxDecoration(
+                                        gradient: LinearGradient(
+                                          colors: banner.isMeeting
+                                              ? [const Color(0xFF1E293B), const Color(0xFF0F172A)]
+                                              : [AppTheme.primaryColor, AppTheme.cardDark],
+                                          begin: Alignment.topLeft,
+                                          end: Alignment.bottomRight,
                                         ),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          banner.isMeeting ? 'LIVE MEETING' : 'NEWS',
-                                          style: const TextStyle(
-                                            color: Colors.black,
-                                            fontSize: 9,
-                                            fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                            ),
+
+                            // 2. Dark Gradient Overlay when Image is present for legibility
+                            if (imageUrl != null)
+                              Positioned.fill(
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      colors: [
+                                        Colors.black.withValues(alpha: 0.85),
+                                        Colors.black.withValues(alpha: 0.45),
+                                        Colors.black.withValues(alpha: 0.25),
+                                      ],
+                                      begin: Alignment.bottomCenter,
+                                      end: Alignment.topCenter,
+                                    ),
+                                  ),
+                                ),
+                              ),
+
+                            // 3. Foreground Banner Content
+                            Padding(
+                              padding: const EdgeInsets.all(14),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  // 1. Top Row: Badge Tag & Joining Fee
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                            decoration: BoxDecoration(
+                                              color: banner.isMeeting ? AppTheme.accentColor : AppTheme.info,
+                                              borderRadius: BorderRadius.circular(8),
+                                            ),
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Icon(
+                                                  banner.isMeeting ? Icons.mic : Icons.campaign,
+                                                  size: 11,
+                                                  color: Colors.black,
+                                                ),
+                                                const SizedBox(width: 4),
+                                                Text(
+                                                  banner.isMeeting ? 'LIVE MEETING' : 'ANNOUNCEMENT',
+                                                  style: const TextStyle(
+                                                    color: Colors.black,
+                                                    fontSize: 9,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                          if (banner.isMeeting) ...[
+                                            const SizedBox(width: 8),
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                              decoration: BoxDecoration(
+                                                color: banner.alreadyPaid
+                                                    ? AppTheme.success.withValues(alpha: 0.2)
+                                                    : AppTheme.warning.withValues(alpha: 0.2),
+                                                borderRadius: BorderRadius.circular(8),
+                                                border: Border.all(
+                                                  color: banner.alreadyPaid ? AppTheme.success : AppTheme.warning,
+                                                  width: 0.8,
+                                                ),
+                                              ),
+                                              child: Text(
+                                                banner.alreadyPaid ? 'PAID ✓' : 'Fee: ₹${banner.price.toStringAsFixed(0)}',
+                                                style: TextStyle(
+                                                  color: banner.alreadyPaid ? AppTheme.success : AppTheme.warning,
+                                                  fontSize: 10,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+
+                                  // 2. Middle Row: Title & Description
+                                  if (banner.title.isNotEmpty || banner.description.isNotEmpty)
+                                    Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        if (banner.title.isNotEmpty)
+                                          Text(
+                                            banner.title,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 15,
+                                              fontWeight: FontWeight.bold,
+                                              shadows: [
+                                                Shadow(color: Colors.black, blurRadius: 4),
+                                              ],
+                                            ),
+                                          ),
+                                        if (banner.description.isNotEmpty) ...[
+                                          const SizedBox(height: 2),
+                                          Text(
+                                            banner.description,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: const TextStyle(
+                                              color: AppTheme.textSecondary,
+                                              fontSize: 11,
+                                              shadows: [
+                                                Shadow(color: Colors.black, blurRadius: 4),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
+                                      ],
+                                    ),
+
+                                  // 3. Full-width Host Row
+                                  if (banner.hostName != null && banner.hostName!.isNotEmpty) ...[
+                                    Row(
+                                      children: [
+                                        const Icon(Icons.person_pin, size: 14, color: AppTheme.accentColor),
+                                        const SizedBox(width: 5),
+                                        Expanded(
+                                          child: Text(
+                                            'By Host: ${banner.hostName}',
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: const TextStyle(
+                                              color: AppTheme.accentColor,
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.bold,
+                                              shadows: [
+                                                Shadow(color: Colors.black, blurRadius: 4),
+                                              ],
+                                            ),
                                           ),
                                         ),
                                       ],
                                     ),
-                                  ),
-                                  if (banner.isMeeting) ...[
-                                    const SizedBox(width: 8),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                      decoration: BoxDecoration(
-                                        color: banner.alreadyPaid
-                                            ? AppTheme.success.withValues(alpha: 0.2)
-                                            : AppTheme.warning.withValues(alpha: 0.2),
-                                        borderRadius: BorderRadius.circular(8),
-                                        border: Border.all(
-                                          color: banner.alreadyPaid ? AppTheme.success : AppTheme.warning,
-                                          width: 0.8,
-                                        ),
-                                      ),
-                                      child: Text(
-                                        banner.alreadyPaid ? 'PAID ✓' : 'Fee: ₹${banner.price.toStringAsFixed(0)}',
-                                        style: TextStyle(
-                                          color: banner.alreadyPaid ? AppTheme.success : AppTheme.warning,
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    ),
                                   ],
-                                ],
-                              ),
-                            ],
-                          ),
 
-                          // 2. Middle Row: Title & Description
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                banner.title,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                banner.description,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  color: AppTheme.textSecondary,
-                                  fontSize: 11,
-                                ),
-                              ),
-                            ],
-                          ),
-
-                          // 3. Full-width Host Row (Spans from Left to Right)
-                          if (banner.hostName != null && banner.hostName!.isNotEmpty) ...[
-                            Row(
-                              children: [
-                                const Icon(Icons.person_pin, size: 14, color: AppTheme.accentColor),
-                                const SizedBox(width: 5),
-                                Expanded(
-                                  child: Text(
-                                    'By Host: ${banner.hostName}',
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      color: AppTheme.accentColor,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-
-                          // 4. Bottom Row: Big Bold Time Counter + Join Room Action
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              Expanded(
-                                child: MeetingCountdownBadge(banner: banner),
-                              ),
-                              const SizedBox(width: 8),
-                              if (banner.isMeeting && banner.meetingUuid != null)
-                                ElevatedButton(
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: AppTheme.accentColor,
-                                    foregroundColor: Colors.black,
-                                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                  ),
-                                  onPressed: () => _confirmAndJoin(context, banner),
-                                  child: const Row(
-                                    mainAxisSize: MainAxisSize.min,
+                                  // 4. Bottom Row: Big Bold Time Counter + Join Room Action
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    crossAxisAlignment: CrossAxisAlignment.end,
                                     children: [
-                                      Icon(Icons.play_circle_fill, size: 18),
-                                      SizedBox(width: 4),
-                                      Text(
-                                        'Join Room',
-                                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                                      Expanded(
+                                        child: banner.isMeeting
+                                            ? MeetingCountdownBadge(banner: banner)
+                                            : const SizedBox.shrink(),
                                       ),
+                                      const SizedBox(width: 8),
+                                      if (banner.meetingUuid != null && banner.meetingUuid!.isNotEmpty)
+                                        ElevatedButton(
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: AppTheme.accentColor,
+                                            foregroundColor: Colors.black,
+                                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                          ),
+                                          onPressed: () => _confirmAndJoin(context, banner),
+                                          child: const Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Icon(Icons.play_circle_fill, size: 18),
+                                              SizedBox(width: 4),
+                                              Text(
+                                                'Join Room',
+                                                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
                                     ],
                                   ),
-                                ),
-                            ],
-                          ),
-                        ],
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     );
                   },
